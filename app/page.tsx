@@ -1,6 +1,7 @@
 export const revalidate = 0;
 import { getHomework } from '../lib/actions'
 import CheckInButton from './CheckInButton'
+
 // 定义不同学科的颜色
 const SUBJECT_COLORS: Record<string, string> = {
   '语文': 'bg-red-500',
@@ -31,7 +32,6 @@ export default async function ChildDashboard() {
       {/* 作业卡片网格 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {homeworkList.map((item: any) => {
-          // 根据学科自动匹配颜色，如果没有就用灰色
           const headerColor = SUBJECT_COLORS[item.subject] || 'bg-slate-500';
 
           return (
@@ -47,7 +47,7 @@ export default async function ChildDashboard() {
                   {item.content}
                 </p>
 
-                {/* 🌈 如果是图片，直接显示出来 */}
+                {/* 如果是图片，直接显示出来 */}
                 {item.file_type === 'image' && item.file_url && (
                   <div className="mb-8 rounded-2xl overflow-hidden border-2 border-gray-100 shadow-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -65,9 +65,8 @@ export default async function ChildDashboard() {
                   </a>
                 )}
 
-                {/* 使用我们新的真实打卡组件 */}
+                {/* 使用我们新的真实打卡组件调起摄像头 */}
                 <CheckInButton id={item.id} isCompleted={item.is_completed} />
-                </button>
               </div>
             </div>
           )
