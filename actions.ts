@@ -50,3 +50,30 @@ export async function uploadHomework(formData: FormData) {
     throw new Error(error.message)
   }
 }
+export async function completeHomework(formData: FormData) {
+  const id = formData.get('id') as string
+  const file = formData.get('file') as File | null
+
+  let proofUrl = null;
+  if (file && file.size > 0) {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+    // 将孩子拍的照片存进 attachments 文件夹
+    const { error: uploadError } = await supabase.storage
+      .from('attachments')
+      .upload(fileName, file);
+
+    if (uploadError) throw new Error("照片上传失败: " + uploadError.message);
+
+    const { data } = supabase.storage.from('attachments').getPublicUrl(fileName);
+    proofUrl = data.publicUrl;
+  }
+
+  // 更新数据库，把这道作业标记为已完成
+  const { error } = await supabase.from('homework')
+    .update({ is_completed: true, proof_image: proofUrl })
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+}
