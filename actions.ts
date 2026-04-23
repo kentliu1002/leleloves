@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_KEY!)
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export async function getHomework() {
