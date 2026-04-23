@@ -1,6 +1,6 @@
 export const revalidate = 0;
 import { getHomework } from '../lib/actions'
-
+import CheckInButton from './CheckInButton'
 // 定义不同学科的颜色
 const SUBJECT_COLORS: Record<string, string> = {
   '语文': 'bg-red-500',
@@ -65,9 +65,8 @@ export default async function ChildDashboard() {
                   </a>
                 )}
 
-                {/* 打卡按钮 */}
-                <button className="w-full bg-[#FFD600] active:scale-95 transition-transform text-blue-900 py-5 rounded-2xl text-xl font-black shadow-[0_6px_0_0_#E6B800]">
-                  📸 拍下作业打卡
+                {/* 使用我们新的真实打卡组件 */}
+                <CheckInButton id={item.id} isCompleted={item.is_completed} />
                 </button>
               </div>
             </div>
