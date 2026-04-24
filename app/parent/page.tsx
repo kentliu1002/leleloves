@@ -1,64 +1,63 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { uploadHomework, getHomework } from '../../lib/actions';
+'use client'
+import { uploadHomework, getHomework } from '../../lib/actions'
+import { useState, useEffect } from 'react'
 
 export default function ParentPage() {
-  const [loading, setLoading] = useState(false);
-  const [homeworkList, setHomeworkList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false)
+  const [homeworkList, setHomeworkList] = useState<any[]>([])
   
   const last7Days = Array.from({length: 7}, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    return d.toLocaleDateString();
-  });
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    return d.toLocaleDateString()
+  })
   
-  const [selectedDate, setSelectedDate] = useState(last7Days[0]);
+  const [selectedDate, setSelectedDate] = useState(last7Days[0])
 
   const fetchHomework = async () => {
-    const data = await getHomework();
-    setHomeworkList(data);
-  };
+    const data = await getHomework()
+    setHomeworkList(data)
+  }
 
   useEffect(() => {
-    fetchHomework();
-  }, []);
+    fetchHomework()
+  }, [])
 
   const handleSubmit = async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault()
+    setLoading(true)
     
     try {
-      const formData = new FormData(e.target);
-      let content = formData.get('content') as string;
-      const file = formData.get('file') as File | null;
+      const formData = new FormData(e.target)
+      let content = formData.get('content') as string
+      const file = formData.get('file') as File | null
 
       if (!content.trim()) {
         if (file && file.size > 0) {
           const fileName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-          formData.set('content', fileName);
+          formData.set('content', fileName)
         } else {
-          alert('请至少输入作业内容，或者上传一份附件哦！');
-          setLoading(false);
-          return;
+          alert('请至少输入作业内容，或者上传一份附件哦！')
+          setLoading(false)
+          return
         }
       }
 
-      await uploadHomework(formData);
-      alert('发布成功！');
-      e.target.reset();
-      fetchHomework();
-      setSelectedDate(last7Days[0]);
+      await uploadHomework(formData)
+      alert('发布成功！')
+      e.target.reset()
+      fetchHomework()
+      setSelectedDate(last7Days[0])
     } catch (error: any) {
-      alert('上传失败：' + error.message);
+      alert('上传失败：' + error.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  // 👇 就是这里！加上了决定性的分号！
   const filteredHomework = homeworkList.filter((item: any) => 
     new Date(item.created_at).toLocaleDateString() === selectedDate
-  );
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 lg:p-8 max-w-3xl mx-auto">
@@ -103,7 +102,7 @@ export default function ParentPage() {
               >
                 {displayDate}
               </button>
-            );
+            )
           })}
         </div>
 
@@ -135,8 +134,7 @@ export default function ParentPage() {
                   </div>
                 ) : (
                   <span className="inline-block bg-orange-100 text-orange-600 font-bold px-3 py-1 rounded-full text-sm">⏳ 待完成</span>
-                );
-                }
+                )}
               </div>
             </div>
           ))}
@@ -150,5 +148,5 @@ export default function ParentPage() {
       </div>
       
     </div>
-  );
+  )
 }
