@@ -21,7 +21,6 @@ export default function ChildDashboard() {
     setIsRefreshing(true)
     const data = await getHomework()
     
-    // 只拉取今天的作业
     const today = new Date().toLocaleDateString()
     const todayData = data.filter((item: any) => new Date(item.created_at).toLocaleDateString() === today)
     
@@ -31,11 +30,58 @@ export default function ChildDashboard() {
 
   useEffect(() => {
     fetchHW()
-    const timer = setInterval(fetchHW, 300000) // 5分钟自动刷新
+    const timer = setInterval(fetchHW, 300000)
     return () => clearInterval(timer)
   }, [])
 
-  // 计算进度统计数据
+  // 🚀 核心魔法：全自动打印函数
+  const handlePrint = (e: React.MouseEvent, url: string) => {
+    e.preventDefault();
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('请允许浏览器弹出窗口哦');
+      return;
+    }
+
+    const isPdf = url.toLowerCase().includes('.pdf');
+
+    // 生成一个隐蔽的、专门用于适配打印尺寸的干净网页
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>打印作业</title>
+          <style>
+            @media print {
+              @page { margin: 0; }
+              body { margin: 0; padding: 0; }
+              .no-print { display: none; }
+              img, iframe { max-width: 100%; max-height: 100vh; object-fit: contain; }
+            }
+            body { margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; background: #fff; font-family: sans-serif;}
+            .header { width: 100%; padding: 15px; text-align: center; color: #666; font-size: 14px; background: #f8f9fa; border-bottom: 1px solid #eee; }
+            .content { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; }
+          </style>
+        </head>
+        <body>
+          <div class="header no-print">
+            ${isPdf 
+              ? '⚠️ iPad 提示：如果未自动弹出打印界面，请点击下方文档，点击右上角 <b>“共享 ↗”</b> 选择 <b>“打印”</b>。' 
+              : '正在准备打印机，请稍候...'}
+          </div>
+          <div class="content">
+            ${isPdf 
+              ? `<iframe src="${url}" width="100%" height="100%" style="border:none;" onload="setTimeout(() => { window.print(); }, 1500);"></iframe>`
+              : `<img src="${url}" onload="setTimeout(() => { window.print(); }, 500);" />`
+            }
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const totalHomework = homeworkList.length;
   const completedHomework = homeworkList.filter(item => item.is_completed).length;
   const progressRatio = totalHomework === 0 ? 0 : Math.round((completedHomework / totalHomework) * 100);
@@ -50,7 +96,6 @@ export default function ChildDashboard() {
           <h1 className="text-3xl lg:text-4xl font-black text-slate-800">{todayStr}</h1>
         </div>
 
-        {/* 醒目的进度条 */}
         <div className="flex-1 w-full max-w-2xl bg-slate-50 p-4 rounded-xl border border-slate-100">
           <div className="flex justify-between items-end mb-2">
             <span className="font-bold text-slate-600">完成进度</span>
@@ -94,13 +139,11 @@ export default function ChildDashboard() {
           return (
             <div key={item.id} className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col lg:flex-row overflow-hidden hover:shadow-md transition-shadow relative">
               
-              {/* 学科标识色块 */}
               <div className={`${badgeColor} w-full lg:w-32 p-3 lg:p-0 flex lg:flex-col items-center justify-center shrink-0`}>
                 <span className="text-white text-xl lg:text-2xl font-black tracking-widest">{item.subject}</span>
               </div>
               
-              {/* 中间内容 */}
-              <div className="p-5 flex-1 flex flex-col justify-center min-w-0 pr-20 lg:pr-5"> {/* 增加了右侧 padding 防止小屏重叠 */}
+              <div className="p-5 flex-1 flex flex-col justify-center min-w-0 pr-20 lg:pr-5">
                 <p className="text-lg text-slate-700 font-medium whitespace-pre-wrap leading-snug mb-3">
                   {item.content}
                 </p>
@@ -109,7 +152,6 @@ export default function ChildDashboard() {
                 </div>
               </div>
               
-              {/* 💡 右侧操作区：已微调 */}
               <div className="p-4 bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-100 flex flex-row items-center justify-end gap-3 shrink-0 flex-wrap lg:flex-nowrap">
                 
                 {item.file_url && (
@@ -122,18 +164,16 @@ export default function ChildDashboard() {
                     >
                       👀 预览
                     </a>
-                    <a 
-                      href={item.file_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center justify-center bg-white text-yellow-600 border border-yellow-300 px-3 py-2.5 rounded-lg font-bold text-sm hover:bg-yellow-50 transition-colors shadow-sm"
+                    {/* 💡 打印按钮换成了 button，并绑定了 handlePrint 函数 */}
+                    <button 
+                      onClick={(e) => handlePrint(e, item.file_url)}
+                      className="flex items-center justify-center bg-white text-yellow-600 border border-yellow-300 px-3 py-2.5 rounded-lg font-bold text-sm hover:bg-yellow-50 transition-colors shadow-sm cursor-pointer"
                     >
                       🖨️ 打印
-                    </a>
+                    </button>
                   </div>
                 )}
 
-                {/* 💡 核心微调：应用 text-sm font-bold 让字体跟预览/打印对齐 */}
                 <div className="w-full sm:w-auto min-w-[130px] text-sm font-bold">
                   <CheckInButton id={item.id} isCompleted={item.is_completed} />
                 </div>
