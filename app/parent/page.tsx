@@ -6,14 +6,12 @@ export default function ParentPage() {
   const [loading, setLoading] = useState(false)
   const [homeworkList, setHomeworkList] = useState<any[]>([])
   
-  // 💡 生成过去 7 天的日期标签
   const last7Days = Array.from({length: 7}, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - i)
-    return d.toLocaleDateString() // 格式: YYYY/MM/DD
+    return d.toLocaleDateString()
   })
   
-  // 默认选中“今天”
   const [selectedDate, setSelectedDate] = useState(last7Days[0])
 
   const fetchHomework = async () => {
@@ -28,13 +26,31 @@ export default function ParentPage() {
   const handleSubmit = async (e: any) => {
     e.preventDefault()
     setLoading(true)
+    
     try {
       const formData = new FormData(e.target)
+      let content = formData.get('content') as string
+      const file = formData.get('file') as File | null
+
+      // 💡 核心优化：如果文本框是空的
+      if (!content.trim()) {
+        if (file && file.size > 0) {
+          // 如果传了文件，自动提取文件名（去掉 .pdf 或 .jpg 等后缀）作为内容
+          const fileName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          formData.set('content', fileName);
+        } else {
+          // 如果既没写字，也没传文件，就拦截提示
+          alert('请至少输入作业内容，或者上传一份附件哦！');
+          setLoading(false);
+          return;
+        }
+      }
+
       await uploadHomework(formData)
       alert('发布成功！')
       e.target.reset()
       fetchHomework()
-      setSelectedDate(last7Days[0]) // 发布后自动切回今天
+      setSelectedDate(last7Days[0])
     } catch (error: any) {
       alert('上传失败：' + error.message)
     } finally {
@@ -42,7 +58,6 @@ export default function ParentPage() {
     }
   }
 
-  // 根据家长选中的日期过滤显示
   const filteredHomework = homeworkList.filter(item => 
     new Date(item.created_at).toLocaleDateString() === selectedDate
   )
@@ -50,15 +65,14 @@ export default function ParentPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 lg:p-8 max-w-3xl mx-auto">
       
-      {/* 布置新作业区块 */}
       <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 mb-8 mt-4">
         <h1 className="text-3xl font-black text-slate-800 mb-6">📝 布置新作业</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 💡 注意这里：我去掉了 required 属性，现在不强制打字了 */}
           <textarea 
             name="content" 
             className="w-full p-5 border-2 border-gray-200 rounded-2xl h-32 shadow-sm text-lg focus:border-blue-500 focus:outline-none" 
-            placeholder="输入作业内容，AI会自动识别学科..." 
-            required 
+            placeholder="输入作业内容...（若直接上传附件，此处可留空，AI会自动提取文件名）" 
           />
           <div className="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-gray-300">
             <label className="block text-gray-700 font-bold mb-2">📎 添加附件 (照片/文档)</label>
@@ -70,71 +84,8 @@ export default function ParentPage() {
         </form>
       </div>
 
-      {/* 💡 全新 7天打卡记录查看区 */}
+      {/* 下方历史记录区保持不变 */}
       <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-black text-slate-800">👀 历史打卡记录</h2>
-          <button onClick={fetchHomework} className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-full font-bold active:scale-95">🔄 刷新</button>
-        </div>
-
-        {/* 日期横向滑动选择器 */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
-          {last7Days.map((date, index) => {
-            const isToday = index === 0;
-            const displayDate = isToday ? '今天' : date.substring(date.indexOf('/') + 1); // 显示 "今天" 或 "MM/DD"
-            return (
-              <button
-                key={date}
-                onClick={() => setSelectedDate(date)}
-                className={`whitespace-nowrap px-5 py-2 rounded-full font-bold transition-all ${
-                  selectedDate === date 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {displayDate}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* 对应日期的作业列表 */}
-        <div className="space-y-4">
-          {filteredHomework.map((item: any) => (
-            <div key={item.id} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-bold px-3 py-1 rounded-full text-white bg-slate-700">{item.subject}</span>
-                </div>
-                <p className="text-gray-700 whitespace-pre-wrap">{item.content}</p>
-              </div>
-
-              <div className="sm:w-48 sm:border-l-2 sm:border-gray-200 sm:pl-4 flex flex-col justify-center items-center">
-                {item.is_completed ? (
-                  <div className="text-center">
-                    <span className="inline-block bg-green-100 text-green-700 font-bold px-3 py-1 rounded-full text-sm mb-2">✅ 已打卡</span>
-                    {item.proof_image && (
-                      <a href={item.proof_image} target="_blank" rel="noopener noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.proof_image} alt="作业凭证" className="w-20 h-20 object-cover rounded-xl border-2 border-green-200 hover:opacity-80 transition-opacity mx-auto" />
-                      </a>
-                    )}
-                  </div>
-                ) : (
-                  <span className="inline-block bg-orange-100 text-orange-600 font-bold px-3 py-1 rounded-full text-sm">⏳ 待完成</span>
-                )}
-              </div>
-            </div>
-          ))}
-          
-          {filteredHomework.length === 0 && (
-            <div className="text-center py-10 text-gray-400 font-medium">
-              选中的日期没有布置作业哦。
-            </div>
-          )}
-        </div>
-      </div>
-      
-    </div>
-  )
-}
+          <button onClick={fetchHomework} className="text-sm bg-gray-100 hover:bg-gray-2
