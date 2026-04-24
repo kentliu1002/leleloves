@@ -32,14 +32,11 @@ export default function ParentPage() {
       let content = formData.get('content') as string
       const file = formData.get('file') as File | null
 
-      // 💡 核心优化：如果文本框是空的
       if (!content.trim()) {
         if (file && file.size > 0) {
-          // 如果传了文件，自动提取文件名（去掉 .pdf 或 .jpg 等后缀）作为内容
           const fileName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
           formData.set('content', fileName);
         } else {
-          // 如果既没写字，也没传文件，就拦截提示
           alert('请至少输入作业内容，或者上传一份附件哦！');
           setLoading(false);
           return;
@@ -68,7 +65,6 @@ export default function ParentPage() {
       <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 mb-8 mt-4">
         <h1 className="text-3xl font-black text-slate-800 mb-6">📝 布置新作业</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 💡 注意这里：我去掉了 required 属性，现在不强制打字了 */}
           <textarea 
             name="content" 
             className="w-full p-5 border-2 border-gray-200 rounded-2xl h-32 shadow-sm text-lg focus:border-blue-500 focus:outline-none" 
@@ -84,8 +80,45 @@ export default function ParentPage() {
         </form>
       </div>
 
-      {/* 下方历史记录区保持不变 */}
       <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-black text-slate-800">👀 历史打卡记录</h2>
-          <button onClick={fetchHomework} className="text-sm bg-gray-100 hover:bg-gray-2
+          <button onClick={fetchHomework} className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-full font-bold active:scale-95">🔄 刷新</button>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
+          {last7Days.map((date, index) => {
+            const isToday = index === 0;
+            const displayDate = isToday ? '今天' : date.substring(date.indexOf('/') + 1);
+            return (
+              <button
+                key={date}
+                onClick={() => setSelectedDate(date)}
+                className={`whitespace-nowrap px-5 py-2 rounded-full font-bold transition-all ${
+                  selectedDate === date 
+                    ? 'bg-blue-600 text-white shadow-md' 
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {displayDate}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="space-y-4">
+          {filteredHomework.map((item: any) => (
+            <div key={item.id} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full text-white ${
+                    item.subject === '语文' ? 'bg-red-500' :
+                    item.subject === '数学' ? 'bg-blue-500' :
+                    item.subject === '英语' ? 'bg-yellow-400' :
+                    item.subject === '科学' ? 'bg-green-500' : 'bg-slate-500'
+                  }`}>{item.subject}</span>
+                </div>
+                <p className="text-gray-700 whitespace-pre-wrap">{item.content}</p>
+              </div>
+
+              <div className="sm:w-48 sm:border-l-2 sm:border-gray-200 sm:pl-4 flex flex-col justify-center items-center
