@@ -3,18 +3,19 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
 
+// 1. 获取作业列表
 export async function getHomework() {
   const { data, error } = await supabase.from('homework').select('*').order('created_at', { ascending: false })
   if (error) console.error("获取数据失败:", error)
   return data || []
 }
 
+// 2. 家长发布作业 (包含阿里云AI和附件上传)
 export async function uploadHomework(formData: FormData) {
   const content = formData.get('content') as string
-  const file = formData.get('file') as File | null // 获取上传的文件
+  const file = formData.get('file') as File | null
   let subject = '其它'
   
-  // 1. 调用阿里云 AI 进行分类
   try {
     const aiResponse = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
       method: 'POST',
@@ -37,7 +38,6 @@ export async function uploadHomework(formData: FormData) {
     subject = '其它'
   }
 
-  // 2. 处理附件上传到 Supabase Storage
   let fileUrl = null;
   let fileType = null;
 
@@ -45,24 +45,17 @@ export async function uploadHomework(formData: FormData) {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     
-    // 上传到 attachments 存储桶
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('attachments')
-      .upload(fileName, file);
-      
+    const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file);
     if (uploadError) throw new Error("附件上传失败: " + uploadError.message);
     
-    // 获取文件的公开下载链接
     const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(fileName);
     fileUrl = publicUrlData.publicUrl;
     
-    // 判断文件类型给前端显示
     if (file.type.includes('pdf')) fileType = 'pdf';
     else if (file.type.includes('word') || file.name.includes('.doc')) fileType = 'word';
     else fileType = 'image';
   }
 
-  // 3. 将文字、AI分类、文件链接一起写入数据库
   const { error } = await supabase.from('homework').insert([{ 
     subject, 
     content,
@@ -70,7 +63,25 @@ export async function uploadHomework(formData: FormData) {
     file_type: fileType
   }])
   
-  if (error) {
-    throw new Error(error.message)
-  }
+  if (error) throw new Error(error.message)
 }
+
+// 3. 孩子打卡完成作业 (处理照片上传和状态更新)
+export async function completeHomework(formData: FormData) {
+  const id = formData.get('id') as string
+  const file = formData.get('file') as File | null
+
+  let proofUrl = null;
+  if (file && file.size > 0) {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file);
+    if (uploadError) throw new Error("照片上传失败: " + uploadError.message);
+
+    const { data } = supabase.storage.from('attachments').getPublicUrl(fileName);
+    proofUrl = data.publicUrl;
+  }
+
+  const { error } = await supabase.from('homework')
+    .update({ is_completed: true,
