@@ -3,14 +3,27 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
 
-// 1. 获取作业列表
+// 1. 获取并清理作业列表
 export async function getHomework() {
-  const { data, error } = await supabase.from('homework').select('*').order('created_at', { ascending: false })
+  // 💡 新增：计算 7 天前的时间点
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const cutoffIsoString = sevenDaysAgo.toISOString();
+
+  // 💡 新增：静默删除 7 天前的数据，节约数据库空间
+  await supabase.from('homework').delete().lt('created_at', cutoffIsoString);
+
+  // 只拉取最近 7 天的数据
+  const { data, error } = await supabase.from('homework')
+    .select('*')
+    .gte('created_at', cutoffIsoString)
+    .order('created_at', { ascending: false })
+    
   if (error) console.error("获取数据失败:", error)
   return data || []
 }
 
-// 2. 家长发布作业 (包含阿里云AI和附件上传)
+// 2. 家长发布作业
 export async function uploadHomework(formData: FormData) {
   const content = formData.get('content') as string
   const file = formData.get('file') as File | null
@@ -66,7 +79,7 @@ export async function uploadHomework(formData: FormData) {
   if (error) throw new Error(error.message)
 }
 
-// 3. 孩子打卡完成作业 (处理照片上传和状态更新)
+// 3. 孩子打卡完成作业
 export async function completeHomework(formData: FormData) {
   const id = formData.get('id') as string
   const file = formData.get('file') as File | null
