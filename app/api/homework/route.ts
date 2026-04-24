@@ -1,22 +1,28 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// 初始化数据库
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 
-// 专门用来接收外界 POST 请求的接口
 export async function POST(request: Request) {
   try {
-    // 1. 接收从微信/快捷指令传过来的 JSON 数据
-    const { content } = await request.json();
-    
-    if (!content) {
-      return NextResponse.json({ error: '没有收到作业内容' }, { status: 400 });
+    // 1. 🚨 关键改变：使用 formData() 接收包含文件的“包裹”
+    const formData = await request.formData();
+    let content = formData.get('content') as string || '';
+    const file = formData.get('file') as File | null;
+
+    // 如果连字都没有，文件也没有，就拒绝
+    if (!content.trim() && (!file || file.size === 0)) {
+      return NextResponse.json({ error: '没有收到任何作业内容或附件' }, { status: 400 });
+    }
+
+    // 如果没写字但发了文件，自动提取文件名
+    if (!content.trim() && file && file.size > 0) {
+      content = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
     }
 
     let subject = '其它';
-    
-    // 2. 调用阿里云 AI 自动分类
+
+    // 2. 阿里云 AI 自动分类 (和以前一样)
     try {
       const aiResponse = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
         method: 'POST',
@@ -35,24 +41,42 @@ export async function POST(request: Request) {
         subject = data.choices[0].message.content.trim();
       }
     } catch (error) {
-      console.error("AI 分类失败，默认归为其它", error);
+      console.error("AI 分类失败:", error);
     }
 
-    // 3. 存入数据库
+    // 3. 🚨 关键改变：处理文件上传
+    let fileUrl = null;
+    let fileType = null;
+
+    if (file && file.size > 0) {
+      const fileExt = file.name.split('.').pop() || 'png';
+      const fileName = `api-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file);
+      if (uploadError) throw new Error("附件上传失败: " + uploadError.message);
+      
+      const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(fileName);
+      fileUrl = publicUrlData.publicUrl;
+      
+      if (file.type.includes('pdf') || fileName.endsWith('.pdf')) fileType = 'pdf';
+      else if (file.type.includes('word') || fileName.endsWith('.doc') || fileName.endsWith('.docx')) fileType = 'word';
+      else fileType = 'image';
+    }
+
+    // 4. 将所有信息写入数据库
     const { error: dbError } = await supabase.from('homework').insert([{ 
       content: content,
       subject: subject,
-      // API 接收到的直接纯文本，暂不处理附件
-      file_url: null,
-      file_type: null
+      file_url: fileUrl,
+      file_type: fileType
     }]);
 
     if (dbError) throw new Error(dbError.message);
 
-    // 4. 成功后返回暗号
-    return NextResponse.json({ success: true, message: '作业已成功注入数据库！' });
+    return NextResponse.json({ success: true, message: '作业和附件已成功接收！' });
 
   } catch (error: any) {
+    console.error("API 错误:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
