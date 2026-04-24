@@ -84,4 +84,8 @@ export async function completeHomework(formData: FormData) {
   }
 
   const { error } = await supabase.from('homework')
-    .update({ is_completed: true,
+    .update({ is_completed: true, proof_image: proofUrl })
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+}
