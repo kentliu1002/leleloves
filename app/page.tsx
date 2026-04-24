@@ -21,6 +21,7 @@ export default function ChildDashboard() {
     setIsRefreshing(true)
     const data = await getHomework()
     
+    // 只拉取今天的作业
     const today = new Date().toLocaleDateString()
     const todayData = data.filter((item: any) => new Date(item.created_at).toLocaleDateString() === today)
     
@@ -30,94 +31,125 @@ export default function ChildDashboard() {
 
   useEffect(() => {
     fetchHW()
-    const timer = setInterval(fetchHW, 300000)
+    const timer = setInterval(fetchHW, 300000) // 5分钟自动刷新
     return () => clearInterval(timer)
   }, [])
 
+  // 💡 计算进度统计数据
+  const totalHomework = homeworkList.length;
+  const completedHomework = homeworkList.filter(item => item.is_completed).length;
+  // 防止 0/0 报错，如果没作业默认显示 100% 或 0%
+  const progressRatio = totalHomework === 0 ? 0 : Math.round((completedHomework / totalHomework) * 100);
+
   return (
-    <div className="min-h-screen bg-[#F0F7FF] p-6 lg:p-12 font-sans">
+    <div className="min-h-screen bg-[#F4F7F9] p-4 lg:p-8 font-sans">
       
-      <div className="bg-white rounded-3xl p-8 mb-8 border-l-[16px] border-blue-500 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-blue-600 font-bold tracking-widest text-lg">作业实时同步中</span>
+      {/* 🚀 顶层仪表盘：日期与整体进度概览 */}
+      <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm border-t-[10px] border-blue-500 flex flex-col md:flex-row items-center justify-between gap-6">
+        
+        {/* 左侧日期 */}
+        <div className="flex-shrink-0 w-full md:w-auto text-center md:text-left">
+          <p className="text-blue-500 font-bold tracking-widest text-sm mb-1">今日作业概览</p>
+          <h1 className="text-3xl lg:text-4xl font-black text-slate-800">{todayStr}</h1>
+        </div>
+
+        {/* 💡 中间：超醒目的进度条 */}
+        <div className="flex-1 w-full max-w-2xl bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <div className="flex justify-between items-end mb-2">
+            <span className="font-bold text-slate-600">完成进度</span>
+            <div className="text-right">
+              <span className="text-3xl font-black text-blue-600">{progressRatio}%</span>
+              <span className="text-slate-400 text-sm ml-2 font-medium">({completedHomework}/{totalHomework})</span>
+            </div>
           </div>
-          <h1 className="text-5xl md:text-6xl font-black text-slate-800 tracking-tight">{todayStr}</h1>
+          <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden shadow-inner">
+            <div 
+              className={`h-4 rounded-full transition-all duration-1000 ease-out ${progressRatio === 100 ? 'bg-green-500' : 'bg-blue-500'}`} 
+              style={{ width: `${progressRatio}%` }}
+            ></div>
+          </div>
+          {progressRatio === 100 && totalHomework > 0 && (
+            <p className="text-green-600 text-xs font-bold mt-2 text-center animate-pulse">🎉 太棒了！今天的作业全部完成啦！</p>
+          )}
         </div>
         
+        {/* 右侧：刷新按钮 */}
         <button 
           onClick={fetchHW}
-          className={`flex items-center gap-3 bg-blue-100 text-blue-700 hover:bg-blue-200 px-8 py-6 rounded-2xl font-black text-2xl transition-all active:scale-95 shadow-sm ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`flex-shrink-0 bg-blue-50 text-blue-600 hover:bg-blue-100 px-6 py-4 rounded-xl font-bold text-lg transition-all active:scale-95 border border-blue-100 ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
-          {isRefreshing ? '更新中...' : '刷新作业'}
+          <span className={`inline-block mr-2 ${isRefreshing ? 'animate-spin' : ''}`}>🔄</span>
+          刷新
         </button>
       </div>
 
-      {/* 💡 items-stretch 保证同一行的卡片高度强制一致 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+      {/* 📚 作业列表区：紧凑的横向长条排版 */}
+      <div className="space-y-4">
         {homeworkList.length === 0 && (
-          <div className="col-span-full text-center py-20 text-gray-400 text-2xl font-bold">
-            🎉 太棒了！今天暂时还没有作业哦！
+          <div className="bg-white rounded-2xl text-center py-16 text-slate-400 text-xl font-bold shadow-sm border border-slate-100">
+            📭 今天暂时还没有收到作业哦~
           </div>
         )}
 
         {homeworkList.map((item: any) => {
-          const headerColor = SUBJECT_COLORS[item.subject] || 'bg-slate-500';
+          const badgeColor = SUBJECT_COLORS[item.subject] || 'bg-slate-500';
+          // 格式化上传时间，例如 "15:30"
+          const uploadTime = new Date(item.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
           return (
-            <div key={item.id} className="bg-white rounded-3xl shadow-xl border-b-8 border-slate-200 flex flex-col overflow-hidden">
-              <div className={`${headerColor} py-4 px-8 text-white text-3xl font-black italic shrink-0`}>
-                {item.subject}
+            <div key={item.id} className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col lg:flex-row overflow-hidden hover:shadow-md transition-shadow">
+              
+              {/* 💡 左侧标识：学科类型和颜色细条 */}
+              <div className={`${badgeColor} w-full lg:w-32 p-3 lg:p-0 flex lg:flex-col items-center justify-center shrink-0`}>
+                <span className="text-white text-xl lg:text-2xl font-black tracking-widest">{item.subject}</span>
               </div>
               
-              {/* 💡 flex-1 让中间内容区自动撑开，把打卡按钮挤到最下面 */}
-              <div className="p-8 flex flex-col flex-1">
+              {/* 中间内容：文字描述与上传时间 */}
+              <div className="p-5 flex-1 flex flex-col justify-center min-w-0">
+                <p className="text-lg text-slate-700 font-medium whitespace-pre-wrap leading-snug mb-3">
+                  {item.content}
+                </p>
+                {/* 💡 在文字左下方显示上传时间 */}
+                <div className="flex items-center gap-1 text-slate-400 text-sm font-medium mt-auto">
+                  <span>🕒 上传时间: {uploadTime}</span>
+                </div>
+              </div>
+              
+              {/* 💡 右侧操作区：预览、打印、打卡紧凑排列 */}
+              <div className="p-4 bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-100 flex flex-row items-center justify-end gap-3 shrink-0 flex-wrap lg:flex-nowrap">
                 
-                {/* 💡 附件操作区：固定在内容左上方 */}
                 {item.file_url && (
-                  <div className="flex flex-wrap gap-4 mb-6">
+                  <div className="flex gap-2">
                     <a 
                       href={item.file_url} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-xl font-bold text-lg hover:bg-blue-100 transition-colors border border-blue-100 shadow-sm"
+                      className="flex items-center justify-center bg-white text-blue-600 border border-blue-200 px-4 py-3 rounded-lg font-bold text-sm hover:bg-blue-50 transition-colors shadow-sm"
                     >
-                      👀 预览附件
+                      👀 预览
                     </a>
                     <a 
                       href={item.file_url} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      className="flex items-center gap-2 bg-yellow-50 text-yellow-700 px-4 py-2 rounded-xl font-bold text-lg hover:bg-yellow-100 transition-colors border border-yellow-200 shadow-sm"
+                      className="flex items-center justify-center bg-white text-yellow-600 border border-yellow-300 px-4 py-3 rounded-lg font-bold text-sm hover:bg-yellow-50 transition-colors shadow-sm"
                     >
-                      🖨️ 打印附件
+                      🖨️ 打印
                     </a>
                   </div>
                 )}
 
-                {/* 💡 如果是图片，保留一个干净利落的小缩略图 */}
-                {item.file_type === 'image' && item.file_url && (
-                   <div className="mb-6">
-                     <img src={item.file_url} alt="作业图片" className="w-32 h-32 object-cover rounded-xl border border-gray-200 shadow-sm" />
-                   </div>
-                )}
-
-                {/* 作业文字描述 */}
-                <p className="text-2xl text-slate-700 font-medium leading-relaxed mb-8 whitespace-pre-wrap">
-                  {item.content}
-                </p>
-
-                {/* 💡 这里的 mt-auto 是对齐的核心魔法，强制把按钮顶到最底部 */}
-                <div className="mt-auto">
+                {/* 限制打卡按钮的最大宽度，使其在横排时更加精致 */}
+                <div className="w-full sm:w-auto min-w-[140px]">
                   <CheckInButton id={item.id} isCompleted={item.is_completed} />
                 </div>
+
               </div>
             </div>
           )
         })}
       </div>
+      
     </div>
   )
 }
