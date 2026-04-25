@@ -1,104 +1,125 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+// 初始化 Supabase 客户端
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_ANON_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-// 1. 获取并清理作业列表
+// 1. 获取所有作业
 export async function getHomework() {
-  // 💡 新增：计算 7 天前的时间点
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const cutoffIsoString = sevenDaysAgo.toISOString();
-
-  // 💡 新增：静默删除 7 天前的数据，节约数据库空间
-  await supabase.from('homework').delete().lt('created_at', cutoffIsoString);
-
-  // 只拉取最近 7 天的数据
-  const { data, error } = await supabase.from('homework')
+  const { data, error } = await supabase
+    .from('homework')
     .select('*')
-    .gte('created_at', cutoffIsoString)
     .order('created_at', { ascending: false })
     
-  if (error) console.error("获取数据失败:", error)
+  if (error) throw new Error(error.message)
   return data || []
 }
 
-// 2. 家长发布作业
+// 2. 家长端布置新作业
 export async function uploadHomework(formData: FormData) {
-  const content = formData.get('content') as string
+  let content = formData.get('content') as string || ''
   const file = formData.get('file') as File | null
-  let subject = '其它'
   
-  try {
-    const aiResponse = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ALIYUN_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'qwen-plus',
-        messages: [{ role: 'user', content: `分析以下作业内容：“${content}”，仅严格返回一个词：语文、数学、英语、科学或其它。不要返回任何其他标点或解释。` }],
-        temperature: 0.1
-      })
-    })
-    const data = await aiResponse.json()
-    if (data.choices && data.choices.length > 0) {
-      subject = data.choices[0].message.content.trim()
-    }
-  } catch (aiError) {
-    console.error("阿里云 AI 识别失败:", aiError)
-    subject = '其它'
-  }
+  let fileUrl = null
+  let fileType = null
 
-  let fileUrl = null;
-  let fileType = null;
-
+  // 处理附件上传
   if (file && file.size > 0) {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const fileExt = file.name.split('.').pop() || 'png'
+    const fileName = `parent-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
     
-    const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file);
-    if (uploadError) throw new Error("附件上传失败: " + uploadError.message);
+    const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file)
+    if (uploadError) throw new Error("附件上传失败: " + uploadError.message)
     
-    const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(fileName);
-    fileUrl = publicUrlData.publicUrl;
+    const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(fileName)
+    fileUrl = publicUrlData.publicUrl
     
-    if (file.type.includes('pdf')) fileType = 'pdf';
-    else if (file.type.includes('word') || file.name.includes('.doc')) fileType = 'word';
-    else fileType = 'image';
+    if (file.type.includes('pdf') || fileName.endsWith('.pdf')) fileType = 'pdf'
+    else if (file.type.includes('word') || fileName.endsWith('.doc') || fileName.endsWith('.docx')) fileType = 'word'
+    else fileType = 'image'
+
+    // 如果没有输入文字，提取文件名作为内容
+    if (!content.trim()) {
+       content = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+    }
   }
 
-  const { error } = await supabase.from('homework').insert([{ 
-    subject, 
-    content,
-    file_url: fileUrl,
-    file_type: fileType
+  // 简单的科目匹配逻辑（防止前端没有传 subject）
+  let subject = '其它'
+  if (content.includes('语文')) subject = '语文'
+  else if (content.includes('数学')) subject = '数学'
+  else if (content.includes('英语')) subject = '英语'
+  else if (content.includes('科学')) subject = '科学'
+
+  const { error: dbError } = await supabase.from('homework').insert([{ 
+    content: content, 
+    subject: subject, 
+    file_url: fileUrl, 
+    file_type: fileType 
   }])
   
-  if (error) throw new Error(error.message)
+  if (dbError) throw new Error(dbError.message)
 }
 
-// 3. 孩子打卡完成作业
+// 3. 孩子端拍照打卡
 export async function completeHomework(formData: FormData) {
   const id = formData.get('id') as string
   const file = formData.get('file') as File | null
-
-  let proofUrl = null;
+  
+  let proofUrl = null
+  
+  // 处理打卡照片上传
   if (file && file.size > 0) {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file);
-    if (uploadError) throw new Error("照片上传失败: " + uploadError.message);
-
-    const { data } = supabase.storage.from('attachments').getPublicUrl(fileName);
-    proofUrl = data.publicUrl;
+    const fileExt = file.name.split('.').pop() || 'png'
+    const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+    
+    const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file)
+    if (uploadError) throw new Error("打卡图片上传失败: " + uploadError.message)
+    
+    const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(fileName)
+    proofUrl = publicUrlData.publicUrl
   }
 
-  const { error } = await supabase.from('homework')
+  // 更新数据库状态
+  const { error } = await supabase
+    .from('homework')
     .update({ is_completed: true, proof_image: proofUrl })
-    .eq('id', id);
+    .eq('id', id)
+    
+  if (error) throw new Error(error.message)
+}
 
-  if (error) throw new Error(error.message);
+// 4. 删除作业（支持单条和批量，并自动清理存储桶内的文件）
+export async function deleteHomework(ids: string[]) {
+  // 先查询这些作业是否有附件或打卡图片
+  const { data: items } = await supabase
+    .from('homework')
+    .select('file_url, proof_image')
+    .in('id', ids)
+
+  if (items) {
+    for (const item of items) {
+      // 删掉布置作业时带的附件
+      if (item.file_url) {
+        const fileName = item.file_url.split('/').pop()
+        if (fileName) await supabase.storage.from('attachments').remove([fileName])
+      }
+      // 删掉孩子打卡拍的照片
+      if (item.proof_image) {
+        const proofName = item.proof_image.split('/').pop()
+        if (proofName) await supabase.storage.from('attachments').remove([proofName])
+      }
+    }
+  }
+
+  // 彻底从数据库删除记录
+  const { error } = await supabase
+    .from('homework')
+    .delete()
+    .in('id', ids)
+    
+  if (error) throw new Error(error.message)
+  return { success: true }
 }
