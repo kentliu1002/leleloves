@@ -42,7 +42,6 @@ export default function ParentPage() {
       let fileType = null;
       let originalFileName = '';
 
-      // 1. 文件直传 Supabase，彻底绕过 Vercel 和 Next.js 的乱码 Bug
       if (file && file.size > 0) {
         originalFileName = file.name;
         const fileExt = file.name.split('.').pop() || 'pdf';
@@ -58,7 +57,13 @@ export default function ParentPage() {
         else if (file.type.includes('image') || ['jpg', 'jpeg', 'png'].includes(fileExt)) fileType = 'image';
         else fileType = 'word';
 
-        if (!finalContent.trim()) finalContent = file.name.split('.')[0];
+        // 💡 核心修复：聪明地去除后缀，保留完整文件名（无论中间有几个点）
+        if (!finalContent.trim()) {
+          const lastDotIndex = originalFileName.lastIndexOf('.');
+          finalContent = lastDotIndex !== -1 
+            ? originalFileName.substring(0, lastDotIndex) 
+            : originalFileName;
+        }
       }
 
       if (!finalContent.trim() && !fileUrl) {
@@ -67,7 +72,6 @@ export default function ParentPage() {
         return;
       }
 
-      // 2. 绝对安全防线：使用纯 JSON 发送中文字符，神仙也搞不乱
       const response = await fetch('/api/homework', {
         method: 'POST',
         headers: {
