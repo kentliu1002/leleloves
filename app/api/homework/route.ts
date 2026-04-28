@@ -18,16 +18,16 @@ function fixGarbledText(text: string) {
   }
 }
 
-// 🤖 调用百炼大模型分析学科 (完美平衡的结构化提示词)
+// 🤖 调用百炼大模型分析学科 (带全自动诊断功能)
 async function analyzeSubjectWithAI(text: string, filename: string = '') {
-  if (!DASHSCOPE_API_KEY) return '其它';
+  // 🚨 诊断 1：检查 API Key 是否存在
+  if (!DASHSCOPE_API_KEY) {
+    return '未配置密钥';
+  }
   
-  // 💡 使用结构化的提示词，无论传文字还是传文件，都能让大模型清晰看懂
   const prompt = `你是一个极简的学科分类器。请从【语文、数学、英语、科学、历史、地理、政治、其它】中选出一个最匹配的学科。
-  
 【线索1】文件名：${filename || '无'}
 【线索2】作业内容：${text || '无'}
-
 判断规则：
 1. 综合分析“线索1”和“线索2”，只要包含学科关键字，立刻归类。
 2. 即使只有标题没有内容，也要盲猜学科。
@@ -43,18 +43,28 @@ async function analyzeSubjectWithAI(text: string, filename: string = '') {
         parameters: { result_format: 'text' }
       })
     });
+    
     const data = await response.json();
     
-    // 智能提取：即便大模型废话连篇，只要包含这几个字就能抓出来
+    // 🚨 诊断 2：检查百炼接口是否报错（如欠费、Key错误）
+    if (data.code || data.message) {
+      console.error("AI 接口报错:", data);
+      return `AI报错:${data.code}`;
+    }
+    
     if (data.output?.text) {
       const subject = data.output.text.trim();
       const validSubjects = ["语文", "数学", "英语", "科学", "历史", "地理", "政治"];
       for (const valid of validSubjects) {
         if (subject.includes(valid)) return valid;
       }
+      // 🚨 诊断 3：检查大模型是不是没按规矩办事，胡言乱语了
+      return `AI乱答:${subject.substring(0, 4)}`;
     }
-    return '其它';
-  } catch (error) { return '其它'; }
+    return 'AI无响应';
+  } catch (error) { 
+    return '网络故障'; 
+  }
 }
 
 export async function POST(request: Request) {
@@ -67,7 +77,7 @@ export async function POST(request: Request) {
 
     const contentType = request.headers.get('content-type') || '';
 
-    // 💡 分流 A：网页端 JSON
+    // 分流 A：网页端 JSON
     if (contentType.includes('application/json')) {
       const body = await request.json();
       content = body.content || '';
@@ -75,7 +85,7 @@ export async function POST(request: Request) {
       fileUrl = body.file_url || null;
       fileType = body.file_type || null;
     } 
-    // 💡 分流 B：小程序 / 快捷指令 FormData
+    // 分流 B：小程序 / 快捷指令 FormData
     else {
       const formData = await request.formData();
       const rawContent = formData.get('content') as string || '';
@@ -105,7 +115,6 @@ export async function POST(request: Request) {
       else fileType = 'word';
     }
 
-    // 补全缺失的 content（用净化后的文件名）
     if (!content.trim() && originalFileName) {
       content = originalFileName.replace(/\.[^/.]+$/, "");
     }
@@ -115,7 +124,7 @@ export async function POST(request: Request) {
 
     await supabase.from('homework').insert([{ 
       content: content,
-      subject: aiSubject,
+      subject: aiSubject, // 这里存入的将是诊断信息
       file_url: fileUrl,
       file_type: fileType,
       is_completed: false
