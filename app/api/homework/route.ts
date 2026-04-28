@@ -7,27 +7,32 @@ const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
 // 🛡️ 核心修复引擎：双重防乱码解析器
 function fixGarbledText(text: string) {
   if (!text) return '';
-  
-  // 1. 如果有 % 号，说明是小程序 encodeURIComponent 发来的，直接解密
   if (text.includes('%')) {
     try { return decodeURIComponent(text); } catch (e) {}
   }
-  
-  // 2. 终极还原：解决 Next.js 底层将 UTF-8 误认为 Latin1 的史诗级 Bug
   try {
-    // 将乱码强制转换回原始字节，再用 utf8 重新正确拼装！
     const utf8Str = Buffer.from(text, 'latin1').toString('utf8');
-    // 如果转换后不是空字符，就用转换后的结果
     return utf8Str || text;
   } catch (err) {
     return text;
   }
 }
 
-// 🤖 调用百炼大模型分析学科
+// 🤖 调用百炼大模型分析学科 (完美平衡的结构化提示词)
 async function analyzeSubjectWithAI(text: string, filename: string = '') {
   if (!DASHSCOPE_API_KEY) return '其它';
-  const prompt = `请分析以下作业属于哪个学科（语文、数学、英语、科学、历史、地理、政治、其它）。\n文件名：${filename}\n内容：${text}\n请只输出一个学科名称，不要包含标点和解释。`;
+  
+  // 💡 使用结构化的提示词，无论传文字还是传文件，都能让大模型清晰看懂
+  const prompt = `你是一个极简的学科分类器。请从【语文、数学、英语、科学、历史、地理、政治、其它】中选出一个最匹配的学科。
+  
+【线索1】文件名：${filename || '无'}
+【线索2】作业内容：${text || '无'}
+
+判断规则：
+1. 综合分析“线索1”和“线索2”，只要包含学科关键字，立刻归类。
+2. 即使只有标题没有内容，也要盲猜学科。
+3. 你只能输出上述列表中的一个学科名，绝对不要输出任何标点符号、解释文字或前缀。`;
+  
   try {
     const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', {
       method: 'POST',
@@ -39,6 +44,8 @@ async function analyzeSubjectWithAI(text: string, filename: string = '') {
       })
     });
     const data = await response.json();
+    
+    // 智能提取：即便大模型废话连篇，只要包含这几个字就能抓出来
     if (data.output?.text) {
       const subject = data.output.text.trim();
       const validSubjects = ["语文", "数学", "英语", "科学", "历史", "地理", "政治"];
@@ -71,18 +78,13 @@ export async function POST(request: Request) {
     // 💡 分流 B：小程序 / 快捷指令 FormData
     else {
       const formData = await request.formData();
-      
       const rawContent = formData.get('content') as string || '';
       const rawFilename = formData.get('filename') as string || '';
       
-      // 使用还原引擎修复文本内容
       content = fixGarbledText(rawContent);
       originalFileName = fixGarbledText(rawFilename);
-      
       file = formData.get('file') as File | null;
       
-      // ⚠️ 如果是从苹果快捷指令直接传的文件，根本没有 filename 字段，只能从 file.name 取
-      // 而此时的 file.name 绝对是拉丁乱码，必须进还原引擎洗一遍！
       if (!originalFileName && file) {
         originalFileName = fixGarbledText(file.name);
       }
@@ -92,7 +94,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '数据为空' }, { status: 400 });
     }
 
-    // 处理 Vercel 内部文件上传（如果前端没传链接的话）
     if (file && file.size > 0 && !fileUrl) {
       const fileExt = originalFileName.split('.').pop() || 'pdf';
       const storageName = `api-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
       content = originalFileName.replace(/\.[^/.]+$/, "");
     }
 
-    // 🚀 此时扔给 AI 的绝对是字正腔圆的中文了
+    // 🚀 投喂给 AI 引擎
     const aiSubject = await analyzeSubjectWithAI(content, originalFileName);
 
     await supabase.from('homework').insert([{ 
