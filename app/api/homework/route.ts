@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import pdf from 'pdf-parse'; // 需执行 npm install pdf-parse
+import pdf from 'pdf-parse';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
@@ -34,7 +34,7 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
                 { text: "请分析这张作业图片里的内容，判断它属于哪个学科（语文、数学、英语、科学、其它）。请只输出学科名称。" }
               ]
             : [
-                { text: `分析作业学科（语文、数学、英语、科学、其它）。文件名：${params.filename}，提取到的文字内容：${params.text}。请只输出一个学科名称。` }
+                { text: `分析作业学科（语文、数学、英语、科学、其它）。文件名：${params.filename || '无'}，提取到的文字内容：${params.text || '无'}。请只输出一个学科名称。` }
               ]
         }
       ]
