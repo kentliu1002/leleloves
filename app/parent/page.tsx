@@ -28,7 +28,6 @@ export default function ParentPage() {
 
   useEffect(() => { fetchHomework(); }, []);
 
-  // 🚀 核心提交逻辑
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     setLoading(true);
@@ -43,11 +42,10 @@ export default function ParentPage() {
       let fileType = null;
       let originalFileName = '';
 
-      // 1. 文件直传 Supabase，彻底告别 15MB 限制
+      // 1. 文件直传 Supabase，彻底绕过 Vercel 和 Next.js 的乱码 Bug
       if (file && file.size > 0) {
         originalFileName = file.name;
-        const fileExt = file.name.split('.').pop();
-        // 给存储桶里的文件换个英文马甲，防止签名错误
+        const fileExt = file.name.split('.').pop() || 'pdf';
         const storageName = `web-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage.from('attachments').upload(storageName, file);
@@ -56,9 +54,9 @@ export default function ParentPage() {
         const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(storageName);
         fileUrl = publicUrlData.publicUrl;
         
-        if (file.type.includes('pdf')) fileType = 'pdf';
-        else if (file.type.includes('word')) fileType = 'word';
-        else fileType = 'image';
+        if (file.type.includes('pdf') || fileExt === 'pdf') fileType = 'pdf';
+        else if (file.type.includes('image') || ['jpg', 'jpeg', 'png'].includes(fileExt)) fileType = 'image';
+        else fileType = 'word';
 
         if (!finalContent.trim()) finalContent = file.name.split('.')[0];
       }
@@ -69,11 +67,11 @@ export default function ParentPage() {
         return;
       }
 
-      // 2. 带着安全的 JSON 格式呼叫 Vercel API（触发大模型 AI 分类）
+      // 2. 绝对安全防线：使用纯 JSON 发送中文字符，神仙也搞不乱
       const response = await fetch('/api/homework', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json' // 强力声明：我是 UTF-8 编码！
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           content: finalContent,
@@ -139,7 +137,6 @@ export default function ParentPage() {
         </form>
       </div>
 
-      {/* 历史记录区块 (UI与之前完全一致) */}
       <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
         <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
           <h2 className="text-2xl font-black text-slate-800">👀 历史记录与管理</h2>
