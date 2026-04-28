@@ -4,6 +4,26 @@ import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
 
+// 🛡️ 核心修复引擎：双重防乱码解析器
+function fixGarbledText(text: string) {
+  if (!text) return '';
+  
+  // 1. 如果有 % 号，说明是小程序 encodeURIComponent 发来的，直接解密
+  if (text.includes('%')) {
+    try { return decodeURIComponent(text); } catch (e) {}
+  }
+  
+  // 2. 终极还原：解决 Next.js 底层将 UTF-8 误认为 Latin1 的史诗级 Bug
+  try {
+    // 将乱码强制转换回原始字节，再用 utf8 重新正确拼装！
+    const utf8Str = Buffer.from(text, 'latin1').toString('utf8');
+    // 如果转换后不是空字符，就用转换后的结果
+    return utf8Str || text;
+  } catch (err) {
+    return text;
+  }
+}
+
 // 🤖 调用百炼大模型分析学科
 async function analyzeSubjectWithAI(text: string, filename: string = '') {
   if (!DASHSCOPE_API_KEY) return '其它';
@@ -40,7 +60,7 @@ export async function POST(request: Request) {
 
     const contentType = request.headers.get('content-type') || '';
 
-    // 💡 智能分流：如果是网页端发来的安全 JSON（前端已搞定文件上传）
+    // 💡 分流 A：网页端 JSON
     if (contentType.includes('application/json')) {
       const body = await request.json();
       content = body.content || '';
@@ -48,27 +68,31 @@ export async function POST(request: Request) {
       fileUrl = body.file_url || null;
       fileType = body.file_type || null;
     } 
-    // 💡 小程序/快捷指令发来的 FormData
+    // 💡 分流 B：小程序 / 快捷指令 FormData
     else {
       const formData = await request.formData();
+      
       const rawContent = formData.get('content') as string || '';
       const rawFilename = formData.get('filename') as string || '';
-      try {
-        content = rawContent ? decodeURIComponent(rawContent) : '';
-        originalFileName = rawFilename ? decodeURIComponent(rawFilename) : '';
-      } catch (e) {
-        content = rawContent;
-        originalFileName = rawFilename;
-      }
+      
+      // 使用还原引擎修复文本内容
+      content = fixGarbledText(rawContent);
+      originalFileName = fixGarbledText(rawFilename);
+      
       file = formData.get('file') as File | null;
-      if (!originalFileName && file) originalFileName = file.name;
+      
+      // ⚠️ 如果是从苹果快捷指令直接传的文件，根本没有 filename 字段，只能从 file.name 取
+      // 而此时的 file.name 绝对是拉丁乱码，必须进还原引擎洗一遍！
+      if (!originalFileName && file) {
+        originalFileName = fixGarbledText(file.name);
+      }
     }
 
     if (!content.trim() && !fileUrl && (!file || file.size === 0)) {
       return NextResponse.json({ error: '数据为空' }, { status: 400 });
     }
 
-    // 只有当文件流存在，且前端没有提前传好 fileUrl 时，才在 Vercel 端上传
+    // 处理 Vercel 内部文件上传（如果前端没传链接的话）
     if (file && file.size > 0 && !fileUrl) {
       const fileExt = originalFileName.split('.').pop() || 'pdf';
       const storageName = `api-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -80,9 +104,12 @@ export async function POST(request: Request) {
       else fileType = 'word';
     }
 
-    if (!content.trim()) content = originalFileName.replace(/\.[^/.]+$/, "");
+    // 补全缺失的 content（用净化后的文件名）
+    if (!content.trim() && originalFileName) {
+      content = originalFileName.replace(/\.[^/.]+$/, "");
+    }
 
-    // 🚀 让 AI 分析绝对纯净的中文
+    // 🚀 此时扔给 AI 的绝对是字正腔圆的中文了
     const aiSubject = await analyzeSubjectWithAI(content, originalFileName);
 
     await supabase.from('homework').insert([{ 
