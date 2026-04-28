@@ -34,7 +34,7 @@ export default function ChildDashboard() {
     return () => clearInterval(timer)
   }, [])
 
-  // 🚀 核心魔法：全自动打印函数（已使用纯字符串拼接，彻底避开 Vercel 编译 Bug）
+  // 🚀 核心魔法：全自动打印函数（100% 免疫 Vercel 编译 Bug 的 DOM 纯净版）
   const handlePrint = (e: React.MouseEvent, url: string) => {
     e.preventDefault();
     
@@ -46,23 +46,44 @@ export default function ChildDashboard() {
 
     const isPdf = url.toLowerCase().includes('.pdf');
     
-    const hintMsg = isPdf 
-      ? '⚠️ iPad 提示：如果未自动弹出打印界面，请点击下方文档，点击右上角 <b>“共享 ↗”</b> 选择 <b>“打印”</b>。' 
-      : '正在准备打印机，请稍候...';
-
-    const mediaTag = isPdf 
-      ? '<iframe src="' + url + '" width="100%" height="100%" style="border:none;" onload="setTimeout(() => { window.print(); }, 1500);"></iframe>'
-      : '<img src="' + url + '" onload="setTimeout(() => { window.print(); }, 500);" />';
-
-    const htmlString = '<!DOCTYPE html><html><head><title>打印作业</title>' +
-      '<style>@media print { @page { margin: 0; } body { margin: 0; padding: 0; } .no-print { display: none; } img, iframe { max-width: 100%; max-height: 100vh; object-fit: contain; } } body { margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; background: #fff; font-family: sans-serif;} .header { width: 100%; padding: 15px; text-align: center; color: #666; font-size: 14px; background: #f8f9fa; border-bottom: 1px solid #eee; } .content { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; }</style>' +
-      '</head><body>' +
-      '<div class="header no-print">' + hintMsg + '</div>' +
-      '<div class="content">' + mediaTag + '</div>' +
-      '</body></html>';
-
-    printWindow.document.write(htmlString);
+    // 构建基础白纸文档
+    printWindow.document.write("<!DOCTYPE html><html><head><title>打印作业</title></head><body></body></html>");
     printWindow.document.close();
+    
+    const doc = printWindow.document;
+    
+    // 注入 CSS 样式
+    const style = doc.createElement('style');
+    style.innerHTML = "@media print { @page { margin: 0; } body { margin: 0; padding: 0; } .no-print { display: none; } img, iframe { max-width: 100%; max-height: 100vh; object-fit: contain; } } body { margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; background: #fff; font-family: sans-serif;} .header { width: 100%; padding: 15px; text-align: center; color: #666; font-size: 14px; background: #f8f9fa; border-bottom: 1px solid #eee; } .content { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; }";
+    doc.head.appendChild(style);
+
+    // 注入顶部温馨提示
+    const header = doc.createElement('div');
+    header.className = "header no-print";
+    header.innerHTML = isPdf ? '⚠️ iPad 提示：如果未自动弹出打印界面，请点击下方文档，点击右上角 <b>“共享 ↗”</b> 选择 <b>“打印”</b>。' : '正在准备打印机，请稍候...';
+    doc.body.appendChild(header);
+
+    // 注入主内容区域
+    const content = doc.createElement('div');
+    content.className = "content";
+    
+    // 根据文件类型注入图片或 PDF
+    if (isPdf) {
+      const iframe = doc.createElement('iframe');
+      iframe.src = url;
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.border = "none";
+      iframe.onload = () => setTimeout(() => printWindow.print(), 1500);
+      content.appendChild(iframe);
+    } else {
+      const img = doc.createElement('img');
+      img.src = url;
+      img.onload = () => setTimeout(() => printWindow.print(), 500);
+      content.appendChild(img);
+    }
+    
+    doc.body.appendChild(content);
   };
 
   const totalHomework = homeworkList.length;
@@ -110,4 +131,62 @@ export default function ChildDashboard() {
       {/* 📚 作业列表区 */}
       <div className="space-y-4">
         {homeworkList.length === 0 && (
-          
+          <div className="bg-white rounded-2xl text-center py-16 text-slate-400 text-xl font-bold shadow-sm border border-slate-100">
+            📭 今天暂时还没有收到作业哦~
+          </div>
+        )}
+
+        {homeworkList.map((item: any) => {
+          const badgeColor = SUBJECT_COLORS[item.subject] || 'bg-slate-500';
+          const uploadTime = new Date(item.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+          return (
+            <div key={item.id} className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col lg:flex-row overflow-hidden hover:shadow-md transition-shadow relative">
+              
+              <div className={`${badgeColor} w-full lg:w-32 p-3 lg:p-0 flex lg:flex-col items-center justify-center shrink-0`}>
+                <span className="text-white text-xl lg:text-2xl font-black tracking-widest">{item.subject}</span>
+              </div>
+              
+              <div className="p-5 flex-1 flex flex-col justify-center min-w-0 pr-20 lg:pr-5">
+                <p className="text-lg text-slate-700 font-medium whitespace-pre-wrap leading-snug mb-3">
+                  {item.content}
+                </p>
+                <div className="flex items-center gap-1 text-slate-400 text-sm font-medium mt-auto">
+                  <span>🕒 上传: {uploadTime}</span>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-100 flex flex-row items-center justify-end gap-3 shrink-0 flex-wrap lg:flex-nowrap">
+                
+                {item.file_url && (
+                  <div className="flex gap-2">
+                    <a 
+                      href={item.file_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="flex items-center justify-center bg-white text-blue-600 border border-blue-200 px-3 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-50 transition-colors shadow-sm"
+                    >
+                      👀 预览
+                    </a>
+                    <button 
+                      onClick={(e) => handlePrint(e, item.file_url)}
+                      className="flex items-center justify-center bg-white text-yellow-600 border border-yellow-300 px-3 py-2.5 rounded-lg font-bold text-sm hover:bg-yellow-50 transition-colors shadow-sm cursor-pointer"
+                    >
+                      🖨️ 打印
+                    </button>
+                  </div>
+                )}
+
+                <div className="w-full sm:w-auto min-w-[130px] text-sm font-bold">
+                  <CheckInButton id={item.id} isCompleted={item.is_completed} />
+                </div>
+
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      
+    </div>
+  )
+}
