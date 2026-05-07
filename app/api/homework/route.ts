@@ -47,7 +47,6 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
 }
 
 export async function POST(request: Request) {
-  console.log("--- 收到新作业请求 ---");
   try {
     let content = '';
     let originalFileName = '';
@@ -72,28 +71,29 @@ export async function POST(request: Request) {
       
       if (file && file.size > 0) {
         if (!originalFileName) originalFileName = fixGarbledText(file.name);
-        const fileExt = originalFileName.split('.').pop()?.toLowerCase() || '';
+        const fileExt = originalFileName.split('.').pop()?.toLowerCase() || 'pdf';
         
-        // 提前预设 fileType
         if (fileExt === 'pdf') fileType = 'pdf';
         else if (['jpg', 'jpeg', 'png'].includes(fileExt)) fileType = 'image';
 
         const fileBuffer = Buffer.from(await file.arrayBuffer());
-        const storageName = `api-${Date.now()}-${originalFileName}`;
         
-        // 尝试提取 PDF 文字（包裹在 try-catch 中，防止崩溃）
+        // 💡 核心修复：强制使用随机英文数字生成文件名，绝对不包含中文，防止 Supabase 上传崩溃
+        const storageName = `api-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
         if (fileExt === 'pdf') {
-          console.log("正在尝试解析 PDF 文字...");
           try {
             const pdfData = await pdf(fileBuffer);
             extractedText = pdfData.text.substring(0, 1000);
-          } catch (pdfErr) {
-            console.error("PDF 解析插件故障，将跳过文字提取:", pdfErr);
-          }
+          } catch (pdfErr) {}
         }
 
-        // 上传到 Supabase
-        let mimeType = fileExt === 'pdf' ? 'application/pdf' : file.type;
+        // 给文件贴上身份证标签
+        let mimeType = 'application/octet-stream';
+        if (fileExt === 'pdf') mimeType = 'application/pdf';
+        else if (['jpg', 'jpeg'].includes(fileExt)) mimeType = 'image/jpeg';
+        else if (fileExt === 'png') mimeType = 'image/png';
+
         const { error: uploadError } = await supabase.storage.from('attachments').upload(storageName, fileBuffer, {
           contentType: mimeType,
           upsert: true
@@ -101,6 +101,8 @@ export async function POST(request: Request) {
         
         if (!uploadError) {
           fileUrl = supabase.storage.from('attachments').getPublicUrl(storageName).data.publicUrl;
+        } else {
+          console.error("Supabase 上传失败:", uploadError);
         }
       }
     }
@@ -114,7 +116,6 @@ export async function POST(request: Request) {
     });
 
     // 3. 数据库写入阶段
-    console.log("准备写入数据库, 学科:", aiSubject);
     const { error: insertError } = await supabase.from('homework').insert([{ 
       content, 
       subject: aiSubject, 
@@ -123,13 +124,11 @@ export async function POST(request: Request) {
       is_completed: false 
     }]);
 
-    if (insertError) throw new Error("数据库写入失败: " + insertError.message);
+    if (insertError) throw new Error("数据库写入失败");
 
     return NextResponse.json({ success: true, subject: aiSubject });
 
   } catch (error: any) {
-    console.error("API 发生致命错误:", error.message);
-    // 即使报错也返回 JSON，让小程序有反馈
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
