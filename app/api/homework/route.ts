@@ -14,7 +14,7 @@ const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
 
 /**
  * 🤖 AI 识别引擎 (百炼 Coding Plan 套餐模式)
- * 已修正模型为 qwen3.5-plus
+ * 模型：qwen3.5-plus
  */
 async function analyzeHomeworkAI(params: { text?: string, filename?: string, imageUrl?: string }) {
   if (!DASHSCOPE_API_KEY) return '其它';
@@ -38,7 +38,7 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
         'Content-Type': 'application/json' 
       },
       body: JSON.stringify({
-        model: 'qwen3.5-plus', // 修正为当前套餐支持的最强模型
+        model: 'qwen3.5-plus', 
         messages: [{ role: 'user', content: messageContent }]
       })
     });
@@ -58,6 +58,9 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
   }
 }
 
+// ==========================================
+// 🚀 POST: 处理作业上传与 AI 识别
+// ==========================================
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -118,6 +121,46 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error("API 报错:", err.message);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+// ==========================================
+// 🚀 GET: 获取历史记录 (拉取最新 50 条)
+// ==========================================
+export async function GET(request: Request) {
+  try {
+    const { data, error } = await supabase
+      .from('homework')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+      
+    if (error) throw error;
+    return NextResponse.json({ success: true, data });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+// ==========================================
+// 🚀 DELETE: 删除指定的作业
+// ==========================================
+export async function DELETE(request: Request) {
+  try {
+    // 从 URL 中提取要删除的 id (例如: /api/homework?id=123)
+    const url = new URL(request.url);
+    const id = url.searchParams.get('id');
+    if (!id) throw new Error('缺少要删除的作业 ID');
+
+    const { error } = await supabase
+      .from('homework')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
