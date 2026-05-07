@@ -19,9 +19,8 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
   const isVisionMode = !!params.imageUrl;
   const endpoint = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
   const textModel = 'qwen-turbo';
-  const visionModel = 'qwen-vl-plus'; // 视觉大模型
+  const visionModel = 'qwen-vl-plus'; 
 
-  // 1. 构造请求体
   let payload: any = {
     model: isVisionMode ? visionModel : textModel,
     input: {
@@ -96,6 +95,13 @@ export async function POST(request: Request) {
       
       const fileBuffer = Buffer.from(await file.arrayBuffer());
       
+      // 💡 核心修复：根据后缀名动态判断真实的 MIME 类型
+      let mimeType = 'application/octet-stream';
+      if (fileExt === 'pdf') mimeType = 'application/pdf';
+      else if (['jpg', 'jpeg'].includes(fileExt)) mimeType = 'image/jpeg';
+      else if (fileExt === 'png') mimeType = 'image/png';
+      else if (['doc', 'docx'].includes(fileExt)) mimeType = 'application/msword';
+      
       // 📝 如果是 PDF，尝试提取前 2000 个字符
       if (fileExt === 'pdf') {
         try {
@@ -107,7 +113,11 @@ export async function POST(request: Request) {
         fileType = 'image';
       }
 
-      await supabase.storage.from('attachments').upload(storageName, fileBuffer);
+      // 💡 核心修复：上传时强制贴上 contentType 标签
+      await supabase.storage.from('attachments').upload(storageName, fileBuffer, {
+        contentType: mimeType
+      });
+      
       fileUrl = supabase.storage.from('attachments').getPublicUrl(storageName).data.publicUrl;
     }
 
@@ -116,10 +126,8 @@ export async function POST(request: Request) {
     // 🚀 C. 智能 AI 识别
     let aiSubject = '其它';
     if (fileType === 'image' && fileUrl) {
-      // 🖼️ 视觉识别模式
       aiSubject = await analyzeHomeworkAI({ imageUrl: fileUrl });
     } else {
-      // 📄 文本分析模式（包含 PDF 提取到的文字）
       aiSubject = await analyzeHomeworkAI({ text: extractedText || content, filename: originalFileName });
     }
 
