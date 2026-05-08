@@ -102,8 +102,8 @@ function getNonNormalWindow(dateStr: string, holidays: Holiday[], workdays: stri
 function calcNormal(lastDone: Date, dateStr: string): { points: number; reason: string } {
   if (lastDone <= bjDeadline(dateStr, 21,  0)) return { points: 10, reason: '正常上课日 21:00前完成全部作业 🏆' }
   if (lastDone <= bjDeadline(dateStr, 21, 30)) return { points:  8, reason: '正常上课日 21:30前完成全部作业 ⭐' }
-  if (lastDone <= bjDeadline(dateStr, 24,  0)) return { points:  6, reason: '正常上课日 24:00前完成全部作业' }
-  return { points: 0, reason: '正常上课日 24:00前未完成全部作业' }
+  if (lastDone <= bjDeadline(dateStr, 22,  0)) return { points:  6, reason: '正常上课日 22:00前完成全部作业' }
+  return { points: 0, reason: '正常上课日 22:00前未完成全部作业' }
 }
 
 /**

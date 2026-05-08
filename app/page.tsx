@@ -135,7 +135,7 @@ export default function ChildDashboard() {
         rows: [
           { icon: '🏅', desc: '晚 9:00 前完成',   pts: '+10', cls: 'g10' },
           { icon: '⭐', desc: '晚 9:30 前完成',   pts: '+8',  cls: 'g8'  },
-          { icon: '✨', desc: '今晚 12:00 前完成', pts: '+6',  cls: 'g6'  },
+          { icon: '✨', desc: '晚 10:00 前完成',   pts: '+6',  cls: 'g6'  },
           { icon: '😴', desc: '没完成',            pts: '0',   cls: 'g0'  },
         ]
       }
