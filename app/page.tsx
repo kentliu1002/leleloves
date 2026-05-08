@@ -114,6 +114,37 @@ export default function ChildDashboard() {
   const displayDateStr = displayDateObj.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
   const isTodaySelected = selectedDate === last7Days[0];
 
+  // 📋 今日得分规则（根据星期几动态生成）
+  const getTodayScoreGuide = () => {
+    const wd = new Date().getDay() // 0=日,1=一,...,6=六
+    if (wd >= 1 && wd <= 4) {
+      // 周一到周四：普通上学日
+      return {
+        title: '📋 今日得分规则',
+        rows: [
+          { icon: '🏅', desc: '晚 9:00 前完成', pts: '+10', cls: 'g10' },
+          { icon: '⭐', desc: '晚 9:30 前完成', pts: '+8',  cls: 'g8'  },
+          { icon: '✨', desc: '今晚 12:00 前完成', pts: '+6',  cls: 'g6'  },
+          { icon: '😴', desc: '没完成',           pts: '0',   cls: 'g0'  },
+        ]
+      }
+    } else {
+      // 周五/六/日：周末规则
+      const lastDay  = wd === 0 ? '今晚' : wd === 6 ? '明晚(周日)' : '周日晚'
+      const nextDay  = wd === 0 ? '明天(周一)' : wd === 6 ? '后天(周一)' : '周一'
+      return {
+        title: '📋 周末得分规则',
+        rows: [
+          { icon: '🏅', desc: `${nextDay}中午前完成`, pts: '+10', cls: 'g10' },
+          { icon: '⭐', desc: `${nextDay}结束前完成`, pts: '+8',  cls: 'g8'  },
+          { icon: '✨', desc: `${lastDay} 9:00 前完成`, pts: '+6',  cls: 'g6'  },
+          { icon: '😴', desc: '没完成',                pts: '0',   cls: 'g0'  },
+        ]
+      }
+    }
+  }
+  const scoreGuide = getTodayScoreGuide()
+
   const totalHomework = displayHomework.length;
   const completedHomework = displayHomework.filter((item: any) => item.is_completed).length;
   const progressRatio = totalHomework === 0 ? 0 : Math.round((completedHomework / totalHomework) * 100);
@@ -292,6 +323,20 @@ export default function ChildDashboard() {
         .points-yd-reason { font-size: 11px; color: #6c84aa; font-weight: 700; margin-top: 4px;
           max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+        /* ── 积分规则面板 ── */
+        .points-guide { flex-shrink: 0; min-width: 200px; }
+        .guide-title  { font-size: 11px; font-weight: 800; color: #ffd43b;
+          letter-spacing: 2px; margin-bottom: 10px; }
+        .guide-rows   { display: flex; flex-direction: column; gap: 6px; }
+        .guide-row    { display: flex; align-items: center; gap: 8px; }
+        .guide-icon   { font-size: 16px; flex-shrink: 0; }
+        .guide-desc   { font-size: 12px; font-weight: 700; color: #a8b8d8; flex: 1; line-height: 1.3; }
+        .guide-pts    { font-size: 14px; font-weight: 900; flex-shrink: 0; min-width: 36px; text-align: right; }
+        .guide-pts.g10 { color: #ffd43b; text-shadow: 0 0 8px rgba(255,212,59,.5); }
+        .guide-pts.g8  { color: #74c0fc; }
+        .guide-pts.g6  { color: #8ce99a; }
+        .guide-pts.g0  { color: #4a5a7a; }
+
         /* 空状态 */
         .empty-state { background: linear-gradient(135deg,#141b42,#0d1540);
           border: 2px solid rgba(59,91,219,.25); border-radius: 24px;
@@ -331,6 +376,19 @@ export default function ChildDashboard() {
             ) : (
               <div className="points-yd-val zero">—</div>
             )}
+          </div>
+          <div className="points-divider" />
+          <div className="points-guide">
+            <div className="guide-title">{scoreGuide.title}</div>
+            <div className="guide-rows">
+              {scoreGuide.rows.map((r, i) => (
+                <div key={i} className="guide-row">
+                  <span className="guide-icon">{r.icon}</span>
+                  <span className="guide-desc">{r.desc}</span>
+                  <span className={`guide-pts ${r.cls}`}>{r.pts}分</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
