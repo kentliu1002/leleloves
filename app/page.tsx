@@ -9,6 +9,7 @@ interface PointsData {
   yesterday: { points: number; reason: string | null; hasRecord: boolean; date: string }
   todayIsWorkday: boolean
   tomorrowIsWorkday: boolean
+  yesterdayWasWorkday: boolean
 }
 
 const SUBJECT_CONFIG: Record<string, { gradient: string; icon: string }> = {
@@ -119,38 +120,74 @@ export default function ChildDashboard() {
   // 📋 今日得分规则（根据星期几+调休工作日动态生成）
   const getTodayScoreGuide = () => {
     const wd = new Date().getDay() // 0=日,1=一,...,6=六
-    const todayWorkday    = pointsData?.todayIsWorkday    ?? false
-    const tomorrowWorkday = pointsData?.tomorrowIsWorkday ?? false
-    // 今天是上学日的判断：周一~周四 / 调休当天 / 明天是调休（今晚也要按时完成）
-    const isWorkday = (wd >= 1 && wd <= 4) || todayWorkday || tomorrowWorkday
+    const todayWorkday     = pointsData?.todayIsWorkday      ?? false
+    const tomorrowWorkday  = pointsData?.tomorrowIsWorkday   ?? false
+    const yesterdayWorkday = pointsData?.yesterdayWasWorkday ?? false
 
-    if (isWorkday) {
-      // 普通上学日 / 调休当天 / 明天调休→今晚按上学日截止
+    // ── 上学日：周一~周四 / 调休当天 / 明天调休（今晚按上学日截止）
+    const isSchoolDay = (wd >= 1 && wd <= 4) || todayWorkday || tomorrowWorkday
+    if (isSchoolDay) {
       let tag = '📋 今日得分规则'
-      if (todayWorkday && wd >= 5)    tag = '📋 今日调休得分规则'
+      if (todayWorkday && wd >= 5)        tag = '📋 今日调休得分规则'
       if (!todayWorkday && tomorrowWorkday) tag = '📋 明日调休·今晚截止规则'
       return {
         title: tag,
         rows: [
-          { icon: '🏅', desc: '晚 9:00 前完成',    pts: '+10', cls: 'g10' },
-          { icon: '⭐', desc: '晚 9:30 前完成',    pts: '+8',  cls: 'g8'  },
-          { icon: '✨', desc: '今晚 12:00 前完成',  pts: '+6',  cls: 'g6'  },
-          { icon: '😴', desc: '没完成',             pts: '0',   cls: 'g0'  },
+          { icon: '🏅', desc: '晚 9:00 前完成',   pts: '+10', cls: 'g10' },
+          { icon: '⭐', desc: '晚 9:30 前完成',   pts: '+8',  cls: 'g8'  },
+          { icon: '✨', desc: '今晚 12:00 前完成', pts: '+6',  cls: 'g6'  },
+          { icon: '😴', desc: '没完成',            pts: '0',   cls: 'g0'  },
         ]
       }
-    } else {
-      // 周末规则
-      const lastDay = wd === 0 ? '今晚' : wd === 6 ? '明晚(周日)' : '周日晚'
-      const nextDay = wd === 0 ? '明天(周一)' : wd === 6 ? '后天(周一)' : '周一'
+    }
+
+    // ── 周日
+    if (wd === 0) {
+      if (yesterdayWorkday) {
+        // 昨天（周六）是调休上班日 → 只有今天1天假，截止更早
+        return {
+          title: '📋 今日截止规则（仅1天假期）',
+          rows: [
+            { icon: '🏅', desc: '下午 4:00 前完成', pts: '+10', cls: 'g10' },
+            { icon: '⭐', desc: '下午 6:00 前完成', pts: '+8',  cls: 'g8'  },
+            { icon: '✨', desc: '晚上 9:00 前完成', pts: '+6',  cls: 'g6'  },
+            { icon: '😴', desc: '没完成',           pts: '0',   cls: 'g0'  },
+          ]
+        }
+      }
+      // 正常双休周日（最后一天）—— 10分窗口昨天已过
       return {
-        title: '📋 周末得分规则',
+        title: '📋 周日截止规则（最后一天）',
         rows: [
-          { icon: '🏅', desc: `${nextDay}中午前完成`,  pts: '+10', cls: 'g10' },
-          { icon: '⭐', desc: `${nextDay}结束前完成`,  pts: '+8',  cls: 'g8'  },
-          { icon: '✨', desc: `${lastDay} 9:00 前完成`, pts: '+6',  cls: 'g6'  },
-          { icon: '😴', desc: '没完成',                 pts: '0',   cls: 'g0'  },
+          { icon: '⭐', desc: '中午 12:00 前完成', pts: '+8', cls: 'g8'  },
+          { icon: '✨', desc: '下午 6:00 前完成',  pts: '+6', cls: 'g6'  },
+          { icon: '😴', desc: '下午6点后未完成',   pts: '0',  cls: 'g0'  },
         ]
       }
+    }
+
+    // ── 周六（非调休，正常休息）
+    if (wd === 6) {
+      return {
+        title: '📋 周末得分规则（今天第1天）',
+        rows: [
+          { icon: '🏅', desc: '今天下午 6:00 前完成',    pts: '+10', cls: 'g10' },
+          { icon: '⭐', desc: '明天(周日)中午前完成',    pts: '+8',  cls: 'g8'  },
+          { icon: '✨', desc: '明天(周日)下午 6:00 前完成', pts: '+6',  cls: 'g6'  },
+          { icon: '😴', desc: '没完成',                  pts: '0',   cls: 'g0'  },
+        ]
+      }
+    }
+
+    // ── 周五（正常双休前）
+    return {
+      title: '📋 周末得分规则',
+      rows: [
+        { icon: '🏅', desc: '明天(周六)下午 6:00 前完成', pts: '+10', cls: 'g10' },
+        { icon: '⭐', desc: '周日中午 12:00 前完成',      pts: '+8',  cls: 'g8'  },
+        { icon: '✨', desc: '周日下午 6:00 前完成',       pts: '+6',  cls: 'g6'  },
+        { icon: '😴', desc: '没完成',                    pts: '0',   cls: 'g0'  },
+      ]
     }
   }
   const scoreGuide = getTodayScoreGuide()

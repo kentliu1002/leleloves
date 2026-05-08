@@ -60,21 +60,40 @@ function isNormalSchoolDay(dateStr: string, holidays: Holiday[], workdays: strin
 }
 
 /** 判断该日期是否是某个"非正常窗口"的最后一天。
- *  返回窗口信息，否则 null。 */
+ *  返回窗口信息（含实际休息天数 restDays），否则 null。
+ *
+ *  restDays 含义：
+ *   1 天 → 仅周日休/仅1天节假日
+ *   2+天 → 普通周末(周六+周日)/多天节假日
+ */
 function getNonNormalWindow(dateStr: string, holidays: Holiday[], workdays: string[]
-): { windowStart: string; windowEnd: string; label: string } | null {
-  // 调休工作日：不触发周末窗口
+): { windowStart: string; windowEnd: string; label: string; restDays: number } | null {
+  // 调休工作日本身不触发窗口
   if (workdays.includes(dateStr)) return null
+
   // 优先：是否是某节假日的最后一天
   const holiday = holidays.find(h => h.end_date === dateStr)
   if (holiday) {
+    const restDays = Math.round(
+      (new Date(holiday.end_date + 'T12:00:00+08:00').getTime()
+        - new Date(holiday.start_date + 'T12:00:00+08:00').getTime()) / 86_400_000
+    ) + 1
     const windowStart = shiftDate(holiday.start_date, -1) // 放假前一天
-    return { windowStart, windowEnd: dateStr, label: holiday.name }
+    return { windowStart, windowEnd: dateStr, label: holiday.name, restDays }
   }
+
   // 普通周末：周日是最后一天
   if (weekday(dateStr) === 0) {
-    return { windowStart: shiftDate(dateStr, -2), windowEnd: dateStr, label: '周末' }
+    const saturday = shiftDate(dateStr, -1)
+    if (workdays.includes(saturday)) {
+      // 周六是调休上班日 → 只有周日1天休息
+      // windowStart 设为周六（周六布置的作业纳入窗口）
+      return { windowStart: saturday, windowEnd: dateStr, label: '周末', restDays: 1 }
+    }
+    // 正常双休：周五~周日，2天休息
+    return { windowStart: shiftDate(dateStr, -2), windowEnd: dateStr, label: '周末', restDays: 2 }
   }
+
   return null
 }
 
@@ -87,12 +106,25 @@ function calcNormal(lastDone: Date, dateStr: string): { points: number; reason: 
   return { points: 0, reason: '正常上课日 24:00前未完成全部作业' }
 }
 
-function calcNonNormal(lastDone: Date, windowEnd: string): { points: number; reason: string } {
-  const day2 = shiftDate(windowEnd, -1)
-  if (lastDone <= bjDeadline(day2,     12,  0)) return { points: 10, reason: '假期作业 倒数第二天12:00前完成 🏆' }
-  if (lastDone <= bjDeadline(day2,     24,  0)) return { points:  8, reason: '假期作业 倒数第二天24:00前完成 ⭐' }
-  if (lastDone <= bjDeadline(windowEnd, 21,  0)) return { points:  6, reason: '假期作业 倒数第一天21:00前完成' }
-  return { points: 0, reason: '假期作业 倒数第一天21:00后未完成全部作业' }
+/**
+ * 非正常上课日评分
+ * restDays=1（仅1天休息）：当天 16:00→10 / 18:00→8 / 21:00→6
+ * restDays≥2（2天+休息）：倒数第二天 18:00→10 / 最后一天 12:00→8 / 最后一天 18:00→6
+ */
+function calcNonNormal(lastDone: Date, windowEnd: string, restDays: number): { points: number; reason: string } {
+  if (restDays <= 1) {
+    // 1天假期规则
+    if (lastDone <= bjDeadline(windowEnd, 16,  0)) return { points: 10, reason: '假期作业（1天）16:00前完成 🏆' }
+    if (lastDone <= bjDeadline(windowEnd, 18,  0)) return { points:  8, reason: '假期作业（1天）18:00前完成 ⭐' }
+    if (lastDone <= bjDeadline(windowEnd, 21,  0)) return { points:  6, reason: '假期作业（1天）21:00前完成' }
+    return { points: 0, reason: '假期作业（1天）21:00后未完成全部作业' }
+  }
+  // 2天+假期规则
+  const secondToLast = shiftDate(windowEnd, -1)
+  if (lastDone <= bjDeadline(secondToLast, 18,  0)) return { points: 10, reason: '假期作业 倒数第二天18:00前完成 🏆' }
+  if (lastDone <= bjDeadline(windowEnd,    12,  0)) return { points:  8, reason: '假期作业 最后一天12:00前完成 ⭐' }
+  if (lastDone <= bjDeadline(windowEnd,    18,  0)) return { points:  6, reason: '假期作业 最后一天18:00前完成' }
+  return { points: 0, reason: '假期作业 最后一天18:00后未完成全部作业' }
 }
 
 // ── 写积分记录 ────────────────────────────────────────────────────────────
@@ -148,7 +180,7 @@ async function scoreDay(yesterdayStr: string, holidays: Holiday[], workdays: str
     }
 
     const lastDone = new Date(Math.max(...hw.map(h => new Date(h.completed_at).getTime())))
-    const { points, reason } = calcNonNormal(lastDone, window.windowEnd)
+    const { points, reason } = calcNonNormal(lastDone, window.windowEnd, window.restDays)
     const fullReason = `${reason}（${window.windowStart}~${window.windowEnd}）`
     await writePoints(yesterdayStr, 'non_normal', points, fullReason, hw.map(h => h.id))
     return { points, reason: fullReason }
