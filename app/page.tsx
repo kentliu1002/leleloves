@@ -39,7 +39,7 @@ export default function ChildDashboard() {
 
   const fetchPoints = async () => {
     try {
-      const res = await fetch('/api/points')
+      const res = await fetch('/api/points', { cache: 'no-store' })
       if (res.ok) setPointsData(await res.json())
     } catch {}
   }

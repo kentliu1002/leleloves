@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'   // 禁止静态缓存，每次请求都实时查库
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
