@@ -1,0 +1,14 @@
+{
+  "regions": ["hkg1"],
+  "functions": {
+    "app/api/**": {
+      "regions": ["hkg1"]
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/score",
+      "schedule": "5 16 * * *"
+    }
+  ]
+}

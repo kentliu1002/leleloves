@@ -3,17 +3,28 @@ import { useState, useEffect } from 'react'
 import { getHomework } from '../lib/actions'
 import CheckInButton from './CheckInButton'
 
-const SUBJECT_COLORS: Record<string, string> = {
-  '语文': 'bg-red-500',
-  '数学': 'bg-blue-500',
-  '英语': 'bg-yellow-400',
-  '科学': 'bg-green-500',
-  '其它': 'bg-slate-500',
-};
+// ── 积分数据类型 ──────────────────────────────────────────────────────────
+interface PointsData {
+  total: number
+  yesterday: { points: number; reason: string | null; hasRecord: boolean; date: string }
+}
+
+const SUBJECT_CONFIG: Record<string, { gradient: string; icon: string }> = {
+  '语文': { gradient: 'linear-gradient(180deg,#c92a2a,#7d1313)',  icon: '📖' },
+  '数学': { gradient: 'linear-gradient(180deg,#1971c2,#0b4f8f)',  icon: '🔢' },
+  '英语': { gradient: 'linear-gradient(180deg,#e67700,#9a5000)',  icon: '🔤' },
+  '科学': { gradient: 'linear-gradient(180deg,#2f9e44,#155724)',  icon: '🔬' },
+  '历史': { gradient: 'linear-gradient(180deg,#7048e8,#3b0764)',  icon: '🏛️' },
+  '地理': { gradient: 'linear-gradient(180deg,#0ca678,#065f46)',  icon: '🌍' },
+  '政治': { gradient: 'linear-gradient(180deg,#1864ab,#0b3d7a)',  icon: '⚖️' },
+  '其它': { gradient: 'linear-gradient(180deg,#495057,#212529)',  icon: '📝' },
+}
+const DEFAULT_CFG = { gradient: 'linear-gradient(180deg,#495057,#212529)', icon: '📝' }
 
 export default function ChildDashboard() {
   const [allHomework, setAllHomework] = useState<any[]>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [pointsData, setPointsData] = useState<PointsData | null>(null)
   
   // 📅 生成过去7天的日期数组
   const last7Days = Array.from({length: 7}, (_, i) => {
@@ -25,6 +36,13 @@ export default function ChildDashboard() {
   // 默认选中“今天”
   const [selectedDate, setSelectedDate] = useState(last7Days[0]);
 
+  const fetchPoints = async () => {
+    try {
+      const res = await fetch('/api/points')
+      if (res.ok) setPointsData(await res.json())
+    } catch {}
+  }
+
   const fetchHW = async () => {
     setIsRefreshing(true)
     const data = await getHomework()
@@ -34,7 +52,8 @@ export default function ChildDashboard() {
 
   useEffect(() => {
     fetchHW()
-    const timer = setInterval(fetchHW, 300000) // 每5分钟自动刷新一次
+    fetchPoints()
+    const timer = setInterval(() => { fetchHW(); fetchPoints() }, 300000) // 每5分钟自动刷新
     return () => clearInterval(timer)
   }, [])
 
@@ -100,130 +119,352 @@ export default function ChildDashboard() {
   const progressRatio = totalHomework === 0 ? 0 : Math.round((completedHomework / totalHomework) * 100);
 
   return (
-    <div className="min-h-screen bg-[#F4F7F9] p-4 lg:p-8 font-sans">
-      
-      {/* 🚀 顶层仪表盘 */}
-      <div className="bg-white rounded-2xl p-6 mb-4 shadow-sm border-t-[10px] border-blue-500 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex-shrink-0 w-full md:w-auto text-center md:text-left">
-          <p className="text-blue-500 font-bold tracking-widest text-sm mb-1">
-            {isTodaySelected ? '今日作业概览' : '历史作业回顾'}
-          </p>
-          <h1 className="text-3xl lg:text-4xl font-black text-slate-800">{displayDateStr}</h1>
-        </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+        body {
+          background: #0a0e27 !important;
+          font-family: 'Nunito','PingFang SC','Helvetica Neue',sans-serif !important;
+        }
+        body::before {
+          content: '';
+          position: fixed; inset: 0;
+          background-image:
+            radial-gradient(1px 1px at 8%  18%, white, transparent),
+            radial-gradient(1px 1px at 28% 58%, white, transparent),
+            radial-gradient(2px 2px at 50%  8%, rgba(255,255,255,.8), transparent),
+            radial-gradient(1px 1px at 68% 38%, white, transparent),
+            radial-gradient(1px 1px at 83% 68%, white, transparent),
+            radial-gradient(2px 2px at 18% 78%, rgba(255,255,255,.6), transparent),
+            radial-gradient(1px 1px at 58% 83%, white, transparent),
+            radial-gradient(1px 1px at 88% 13%, white, transparent),
+            radial-gradient(1px 1px at 43% 48%, rgba(255,255,255,.5), transparent),
+            radial-gradient(2px 2px at 73% 23%, rgba(255,255,255,.7), transparent),
+            radial-gradient(1px 1px at 35% 92%, white, transparent),
+            radial-gradient(1px 1px at 62%  5%, white, transparent),
+            radial-gradient(1px 1px at 95% 50%, rgba(255,255,255,.6), transparent);
+          pointer-events: none; z-index: 0;
+        }
+        .lele-wrap { position: relative; z-index: 1; padding: 20px; max-width: 1100px; margin: 0 auto; }
 
-        <div className="flex-1 w-full max-w-2xl bg-slate-50 p-4 rounded-xl border border-slate-100">
-          <div className="flex justify-between items-end mb-2">
-            <span className="font-bold text-slate-600">完成进度</span>
-            <div className="text-right">
-              <span className="text-3xl font-black text-blue-600">{progressRatio}%</span>
-              <span className="text-slate-400 text-sm ml-2 font-medium">({completedHomework}/{totalHomework})</span>
+        /* 指挥中心 */
+        .hq {
+          background: linear-gradient(135deg,#1a2156,#0d1540);
+          border: 2px solid #3b5bdb; border-radius: 28px;
+          padding: 24px 28px; margin-bottom: 18px;
+          display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+          box-shadow: 0 0 40px rgba(59,91,219,.3), inset 0 1px 0 rgba(255,255,255,.08);
+          position: relative; overflow: hidden;
+        }
+        .hq::after {
+          content: ''; position: absolute; top: -70px; right: -70px;
+          width: 220px; height: 220px;
+          background: radial-gradient(circle,rgba(59,91,219,.25),transparent 70%);
+          pointer-events: none;
+        }
+        @keyframes lele-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+        .hq-rocket { font-size: 68px; flex-shrink: 0; animation: lele-float 3s ease-in-out infinite;
+          filter: drop-shadow(0 0 18px rgba(100,160,255,.8)); }
+        .hq-info { flex: 1; min-width: 160px; }
+        .hq-label { font-size: 12px; font-weight: 800; color: #74b9ff; letter-spacing: 3px;
+          text-transform: uppercase; margin-bottom: 6px; }
+        .hq-date  { font-size: 30px; font-weight: 900; color: #fff; line-height: 1.15; margin-bottom: 4px; }
+        .hq-sub   { font-size: 14px; color: #a8b8d8; font-weight: 700; }
+
+        .hq-progress { flex-shrink: 0; width: 260px; }
+        .prog-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
+        .prog-label  { font-size: 13px; color: #a8b8d8; font-weight: 800; }
+        .prog-sub    { font-size: 12px; color: #74b9ff; font-weight: 700; margin-top: 2px; }
+        .prog-pct    { font-size: 38px; font-weight: 900; color: #00d2ff; line-height: 1;
+          text-shadow: 0 0 20px rgba(0,210,255,.6); }
+        .prog-bg  { background: rgba(255,255,255,.1); border-radius: 50px; height: 20px;
+          overflow: hidden; border: 1px solid rgba(255,255,255,.1); margin-top: 8px; }
+        .prog-fill { height: 100%; border-radius: 50px; transition: width 1s ease; position: relative; }
+        .prog-fill::after { content: ''; position: absolute; top: 4px; left: 8px; right: 16px;
+          height: 4px; background: rgba(255,255,255,.3); border-radius: 50px; }
+        @keyframes lele-pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+        .all-done-msg { margin-top: 8px; font-size: 13px; color: #6ee7b7; font-weight: 800;
+          text-align: center; animation: lele-pulse 1.5s ease-in-out infinite; }
+
+        .refresh-btn {
+          flex-shrink: 0; background: linear-gradient(135deg,#3b5bdb,#1c3faa);
+          border: none; border-radius: 20px; padding: 16px 22px; cursor: pointer;
+          display: flex; flex-direction: column; align-items: center; gap: 6px;
+          box-shadow: 0 4px 15px rgba(59,91,219,.5); transition: transform .15s, opacity .15s;
+        }
+        .refresh-btn:active { transform: scale(.93); }
+        .refresh-btn.busy   { opacity: .5; cursor: not-allowed; }
+        .refresh-btn .ricon { font-size: 28px; display: inline-block; }
+        @keyframes lele-spin { to{transform:rotate(360deg)} }
+        .refresh-btn .ricon.spin { animation: lele-spin .7s linear infinite; }
+        .refresh-btn .rlabel { font-size: 13px; color: #fff; font-weight: 800; }
+
+        /* 日期条 */
+        .date-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;
+          margin-bottom: 18px; scrollbar-width: none; }
+        .date-strip::-webkit-scrollbar { display: none; }
+        .date-chip { flex-shrink: 0; background: rgba(255,255,255,.06);
+          border: 2px solid rgba(255,255,255,.1); border-radius: 18px;
+          padding: 11px 18px; text-align: center; cursor: pointer;
+          transition: all .2s; min-width: 80px; }
+        .date-chip.sel { background: linear-gradient(135deg,#3b5bdb,#1864ab);
+          border-color: #74b9ff; box-shadow: 0 0 20px rgba(59,91,219,.5); transform: scale(1.05); }
+        .date-chip .wd { font-size: 11px; font-weight: 800; color: #74b9ff; margin-bottom: 4px; display: block; }
+        .date-chip.sel .wd { color: #bfdbfe; }
+        .date-chip .md { font-size: 20px; font-weight: 900; color: #8898aa; display: block; }
+        .date-chip.sel .md { color: #fff; }
+
+        /* 作业卡片 */
+        .hw-card {
+          background: linear-gradient(135deg,#141b42,#0d1540);
+          border: 2px solid rgba(59,91,219,.35); border-radius: 24px;
+          margin-bottom: 14px; overflow: hidden; display: flex;
+          box-shadow: 0 8px 30px rgba(0,0,0,.4); transition: transform .2s, box-shadow .2s;
+        }
+        .hw-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+        .hw-card.done  { border-color: rgba(47,158,68,.35); opacity: .82; }
+
+        .subj-band { width: 108px; flex-shrink: 0; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; padding: 18px 8px; position: relative; overflow: hidden; }
+        .subj-band::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,.04); }
+        .subj-icon { font-size: 30px; margin-bottom: 8px; position: relative; z-index: 1; }
+        .subj-name { font-size: 17px; font-weight: 900; color: #fff; letter-spacing: 2px;
+          position: relative; z-index: 1; }
+
+        .card-body  { flex: 1; padding: 20px 20px 20px 16px; }
+        .card-title { font-size: 19px; font-weight: 900; color: #e8f0ff; line-height: 1.45;
+          margin-bottom: 12px; white-space: pre-wrap; }
+        .card-meta  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .meta-chip  { font-size: 12px; font-weight: 800; color: #6c84aa;
+          background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+          border-radius: 50px; padding: 3px 10px; }
+
+        .card-actions { padding: 14px 16px; background: rgba(0,0,0,.2);
+          border-left: 1px solid rgba(255,255,255,.05); display: flex; flex-direction: column;
+          justify-content: center; gap: 9px; min-width: 156px; flex-shrink: 0; }
+
+        .act-btn { border: none; border-radius: 13px; padding: 11px 14px; font-size: 14px;
+          font-weight: 900; cursor: pointer; display: flex; align-items: center;
+          justify-content: center; gap: 7px; transition: transform .15s, filter .15s;
+          width: 100%; text-decoration: none; font-family: inherit; }
+        .act-btn:active { transform: scale(.93); filter: brightness(.88); }
+        .btn-preview { background: linear-gradient(135deg,#1971c2,#0b4f8f); color: #fff;
+          box-shadow: 0 4px 12px rgba(25,113,194,.4); }
+        .btn-print   { background: linear-gradient(135deg,#e67700,#9a5000); color: #fff;
+          box-shadow: 0 4px 12px rgba(230,119,0,.4); }
+        .btn-checkin { background: linear-gradient(135deg,#ffd43b,#f08c00); color: #1a1a1a;
+          box-shadow: 0 4px 14px rgba(255,212,59,.5); padding: 13px 14px; }
+        .done-badge  { background: linear-gradient(135deg,#2f9e44,#155724); color: #fff;
+          border-radius: 13px; padding: 13px 14px; font-size: 14px; font-weight: 900;
+          text-align: center; box-shadow: 0 0 15px rgba(47,158,68,.4); width: 100%; }
+
+        /* ── 积分卡 ── */
+        .points-card {
+          background: linear-gradient(135deg,#0f1e6b,#1a2f8a);
+          border: 2px solid #ffd43b;
+          border-radius: 24px;
+          padding: 18px 28px;
+          margin-bottom: 18px;
+          display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+          box-shadow: 0 0 30px rgba(255,212,59,.2), inset 0 1px 0 rgba(255,255,255,.08);
+          position: relative; overflow: hidden;
+        }
+        .points-card::after {
+          content: '';
+          position: absolute; top: -40px; right: -40px;
+          width: 160px; height: 160px;
+          background: radial-gradient(circle,rgba(255,212,59,.15),transparent 70%);
+          pointer-events: none;
+        }
+        .points-star { font-size: 48px; flex-shrink: 0; filter: drop-shadow(0 0 12px rgba(255,212,59,.8)); }
+        .points-main { flex: 1; min-width: 120px; }
+        .points-label { font-size: 12px; font-weight: 800; color: #ffd43b; letter-spacing: 2px; margin-bottom: 4px; }
+        .points-total { font-size: 48px; font-weight: 900; color: #fff; line-height: 1;
+          text-shadow: 0 0 20px rgba(255,212,59,.5); }
+        .points-unit  { font-size: 16px; color: #ffd43b; font-weight: 800; margin-left: 6px; }
+        .points-divider { width: 2px; height: 60px; background: rgba(255,212,59,.25); flex-shrink: 0; }
+        .points-yesterday { flex-shrink: 0; text-align: center; min-width: 120px; }
+        .points-yd-label  { font-size: 12px; font-weight: 800; color: #a8b8d8; margin-bottom: 6px; }
+        .points-yd-val    { font-size: 32px; font-weight: 900; line-height: 1; }
+        .points-yd-val.pos { color: #69db7c; text-shadow: 0 0 12px rgba(105,219,124,.5); }
+        .points-yd-val.neg { color: #ff6b6b; text-shadow: 0 0 12px rgba(255,107,107,.5); }
+        .points-yd-val.zero { color: #6c84aa; }
+        .points-yd-reason { font-size: 11px; color: #6c84aa; font-weight: 700; margin-top: 4px;
+          max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* 空状态 */
+        .empty-state { background: linear-gradient(135deg,#141b42,#0d1540);
+          border: 2px solid rgba(59,91,219,.25); border-radius: 24px;
+          text-align: center; padding: 80px 40px; color: #4a5a7a; }
+        .empty-state .ei { font-size: 72px; margin-bottom: 16px; }
+        .empty-state p   { font-size: 20px; font-weight: 800; }
+      `}</style>
+
+      <div className="lele-wrap">
+
+        {/* ── 积分卡 ── */}
+        <div className="points-card">
+          <div className="points-star">⭐</div>
+          <div className="points-main">
+            <div className="points-label">🏆 乐乐的总积分</div>
+            <div>
+              <span className="points-total">{pointsData ? pointsData.total : '—'}</span>
+              <span className="points-unit">分</span>
             </div>
           </div>
-          <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden shadow-inner">
-            <div 
-              className={`h-4 rounded-full transition-all duration-1000 ease-out ${progressRatio === 100 && totalHomework > 0 ? 'bg-green-500' : 'bg-blue-500'}`} 
-              style={{ width: `${progressRatio}%` }}
-            ></div>
+          <div className="points-divider" />
+          <div className="points-yesterday">
+            <div className="points-yd-label">昨日获得</div>
+            {pointsData ? (
+              <>
+                <div className={`points-yd-val ${pointsData.yesterday.points > 0 ? 'pos' : pointsData.yesterday.points < 0 ? 'neg' : 'zero'}`}>
+                  {pointsData.yesterday.hasRecord
+                    ? (pointsData.yesterday.points > 0 ? `+${pointsData.yesterday.points}` : `${pointsData.yesterday.points}`)
+                    : '—'}
+                </div>
+                {pointsData.yesterday.hasRecord && pointsData.yesterday.reason && (
+                  <div className="points-yd-reason" title={pointsData.yesterday.reason}>
+                    {pointsData.yesterday.reason}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="points-yd-val zero">—</div>
+            )}
           </div>
-          {progressRatio === 100 && totalHomework > 0 && (
-            <p className="text-green-600 text-xs font-bold mt-2 text-center animate-pulse">🎉 这天的作业全部完成啦！</p>
-          )}
         </div>
-        
-        <button 
-          onClick={fetchHW}
-          className={`flex-shrink-0 bg-blue-50 text-blue-600 hover:bg-blue-100 px-6 py-4 rounded-xl font-bold text-lg transition-all active:scale-95 border border-blue-100 ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <span className={`inline-block mr-2 ${isRefreshing ? 'animate-spin' : ''}`}>🔄</span>
-          刷新
-        </button>
-      </div>
 
-      {/* 📅 日期选择器 (横向滑动) */}
-      <div className="flex gap-3 overflow-x-auto pb-4 mb-2 scrollbar-hide snap-x">
-        {last7Days.map((date, index) => {
-          const isToday = index === 0;
-          const d = new Date(date);
-          const monthDay = isToday ? '今天' : `${d.getMonth() + 1}/${d.getDate()}`;
-          const weekday = isToday ? 'Today' : d.toLocaleDateString('zh-CN', { weekday: 'short' });
-          const isSelected = selectedDate === date;
+        {/* 指挥中心 */}
+        <div className="hq">
+          <div className="hq-rocket">🚀</div>
 
-          return (
-            <button 
-              key={date} 
-              onClick={() => setSelectedDate(date)} 
-              className={`snap-start flex flex-col items-center justify-center min-w-[80px] sm:min-w-[100px] py-3 rounded-2xl font-bold transition-all border-2 ${
-                isSelected 
-                  ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-105' 
-                  : 'bg-white border-transparent text-slate-500 hover:bg-blue-50'
-              }`}
-            >
-              <span className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-slate-400'}`}>{weekday}</span>
-              <span className="text-lg">{monthDay}</span>
-            </button>
-          );
-        })}
-      </div>
+          <div className="hq-info">
+            <div className="hq-label">🛸 {isTodaySelected ? '今日任务中心' : '历史作业回顾'}</div>
+            <div className="hq-date">{displayDateStr}</div>
+            <div className="hq-sub">加油，乐乐！今天的任务等你来完成！</div>
+          </div>
 
-      {/* 📚 作业列表区 */}
-      <div className="space-y-4">
+          <div className="hq-progress">
+            <div className="prog-header">
+              <div>
+                <div className="prog-label">完成进度</div>
+                <div className="prog-sub">{completedHomework} / {totalHomework} 个任务</div>
+              </div>
+              <div className="prog-pct">{progressRatio}%</div>
+            </div>
+            <div className="prog-bg">
+              <div
+                className="prog-fill"
+                style={{
+                  width: `${progressRatio}%`,
+                  background: progressRatio === 100 && totalHomework > 0
+                    ? 'linear-gradient(90deg,#40c057,#2f9e44)'
+                    : 'linear-gradient(90deg,#00d2ff,#3b5bdb)',
+                  boxShadow: progressRatio === 100 && totalHomework > 0
+                    ? '0 0 12px rgba(64,192,87,.7)'
+                    : '0 0 12px rgba(0,210,255,.7)',
+                }}
+              />
+            </div>
+            {progressRatio === 100 && totalHomework > 0 && (
+              <div className="all-done-msg">🎉 今天的任务全部完成啦！太棒了！</div>
+            )}
+          </div>
+
+          <button
+            onClick={fetchHW}
+            disabled={isRefreshing}
+            className={`refresh-btn${isRefreshing ? ' busy' : ''}`}
+          >
+            <span className={`ricon${isRefreshing ? ' spin' : ''}`}>🔄</span>
+            <span className="rlabel">刷新</span>
+          </button>
+        </div>
+
+        {/* 日期选择器 */}
+        <div className="date-strip">
+          {last7Days.map((date, index) => {
+            const isToday = index === 0
+            const d = new Date(date)
+            const wd = isToday ? 'Today' : d.toLocaleDateString('zh-CN', { weekday: 'short' })
+            const md = isToday ? '今天' : `${d.getMonth() + 1}/${d.getDate()}`
+            return (
+              <button
+                key={date}
+                onClick={() => setSelectedDate(date)}
+                className={`date-chip${selectedDate === date ? ' sel' : ''}`}
+              >
+                <span className="wd">{wd}</span>
+                <span className="md">{md}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* 作业列表 */}
         {displayHomework.length === 0 && (
-          <div className="bg-white rounded-2xl text-center py-16 text-slate-400 text-xl font-bold shadow-sm border border-slate-100">
-            📭 这天暂时没有作业记录哦~
+          <div className="empty-state">
+            <div className="ei">📭</div>
+            <p>这天暂时没有作业记录哦~</p>
           </div>
         )}
 
         {displayHomework.map((item: any) => {
-          const badgeColor = SUBJECT_COLORS[item.subject] || 'bg-slate-500';
-          const uploadTime = new Date(item.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-
+          const cfg = SUBJECT_CONFIG[item.subject] || DEFAULT_CFG
+          const uploadTime = new Date(item.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
           return (
-            <div key={item.id} className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col lg:flex-row overflow-hidden hover:shadow-md transition-shadow relative">
-              
-              <div className={`${badgeColor} w-full lg:w-32 p-3 lg:p-0 flex lg:flex-col items-center justify-center shrink-0`}>
-                <span className="text-white text-xl lg:text-2xl font-black tracking-widest">{item.subject}</span>
+            <div key={item.id} className={`hw-card${item.is_completed ? ' done' : ''}`}>
+
+              <div className="subj-band" style={{ background: cfg.gradient }}>
+                <div className="subj-icon">{cfg.icon}</div>
+                <div className="subj-name">{item.subject}</div>
               </div>
-              
-              <div className="p-5 flex-1 flex flex-col justify-center min-w-0 pr-20 lg:pr-5">
-                <p className="text-lg text-slate-700 font-medium whitespace-pre-wrap leading-snug mb-3">
-                  {item.content}
-                </p>
-                <div className="flex items-center gap-1 text-slate-400 text-sm font-medium mt-auto">
-                  <span>🕒 上传: {uploadTime}</span>
+
+              <div className="card-body">
+                <div className="card-title">{item.content}</div>
+                <div className="card-meta">
+                  <span className="meta-chip">🕒 上传：{uploadTime}</span>
+                  {item.file_type === 'pdf'   && <span className="meta-chip">📄 PDF附件</span>}
+                  {item.file_type === 'image' && <span className="meta-chip">🖼️ 图片附件</span>}
+                  {item.file_type === 'word'  && <span className="meta-chip">📝 Word附件</span>}
                 </div>
               </div>
-              
-              <div className="p-4 bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-100 flex flex-row items-center justify-end gap-3 shrink-0 flex-wrap lg:flex-nowrap">
-                
-                {item.file_url && (
-                  <div className="flex gap-2">
-                    <a 
-                      href={item.file_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center justify-center bg-white text-blue-600 border border-blue-200 px-3 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-50 transition-colors shadow-sm"
-                    >
-                      👀 预览
-                    </a>
-                    <button 
-                      onClick={(e) => handlePrint(e, item.file_url)}
-                      className="flex items-center justify-center bg-white text-yellow-600 border border-yellow-300 px-3 py-2.5 rounded-lg font-bold text-sm hover:bg-yellow-50 transition-colors shadow-sm cursor-pointer"
-                    >
-                      🖨️ 打印
-                    </button>
-                  </div>
+
+              <div className="card-actions">
+                {item.is_completed ? (
+                  <div className="done-badge">✅ 已完成打卡！</div>
+                ) : (
+                  <>
+                    {item.file_url && (
+                      <>
+                        <a
+                          href={item.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="act-btn btn-preview"
+                        >
+                          👀 预览
+                        </a>
+                        <button
+                          className="act-btn btn-print"
+                          onClick={(e) => handlePrint(e, item.file_url)}
+                        >
+                          🖨️ 打印
+                        </button>
+                      </>
+                    )}
+                    <div style={{ width: '100%', fontWeight: 'bold' }}>
+                      <CheckInButton id={item.id} isCompleted={item.is_completed} />
+                    </div>
+                  </>
                 )}
-
-                <div className="w-full sm:w-auto min-w-[130px] text-sm font-bold">
-                  <CheckInButton id={item.id} isCompleted={item.is_completed} />
-                </div>
-
               </div>
+
             </div>
           )
         })}
+
       </div>
-      
-    </div>
+    </>
   )
 }

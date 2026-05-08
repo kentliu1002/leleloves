@@ -82,10 +82,10 @@ export async function completeHomework(formData: FormData) {
     proofUrl = publicUrlData.publicUrl
   }
 
-  // 更新数据库状态
+  // 更新数据库状态（同时记录打卡时间，供积分系统使用）
   const { error } = await supabase
     .from('homework')
-    .update({ is_completed: true, proof_image: proofUrl })
+    .update({ is_completed: true, proof_image: proofUrl, completed_at: new Date().toISOString() })
     .eq('id', id)
     
   if (error) throw new Error(error.message)
