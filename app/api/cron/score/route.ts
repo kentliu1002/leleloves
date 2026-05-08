@@ -48,8 +48,10 @@ function isDayBeforeHoliday(dateStr: string, holidays: Holiday[]): boolean {
 }
 
 function isNormalSchoolDay(dateStr: string, holidays: Holiday[], workdays: string[]): boolean {
-  // 调休工作日：即使是周末也按上学日计算
+  // 调休工作日本身：按上学日计算
   if (workdays.includes(dateStr)) return true
+  // 明天是调休工作日：今天也按上学日计算（今晚要完成作业）
+  if (workdays.includes(shiftDate(dateStr, 1))) return true
   const wd = weekday(dateStr)
   if (wd < 1 || wd > 4) return false          // 只有周一~周四
   if (isHolidayDay(dateStr, holidays)) return false

@@ -37,11 +37,13 @@ export async function GET() {
     const yesterdayPoints = yesterdayLogs.reduce((sum, r) => sum + r.points, 0)
     const yesterdayReason = yesterdayLogs.length > 0 ? yesterdayLogs[0].reason : null
 
-    // 今天是否是调休工作日
-    const bjToday = new Date(Date.now() + 8 * 3600_000)
-    const todayStr = bjToday.toISOString().slice(0, 10)
+    // 今天 / 明天 是否是调休工作日
+    const bjNow = Date.now() + 8 * 3600_000
+    const todayStr    = new Date(bjNow).toISOString().slice(0, 10)
+    const tomorrowStr = new Date(bjNow + 86_400_000).toISOString().slice(0, 10)
     const workdays = (workdayRows || []).map((r: { date: string }) => r.date)
-    const todayIsWorkday = workdays.includes(todayStr)
+    const todayIsWorkday     = workdays.includes(todayStr)
+    const tomorrowIsWorkday  = workdays.includes(tomorrowStr)
 
     return NextResponse.json({
       total,
@@ -52,6 +54,7 @@ export async function GET() {
         hasRecord: yesterdayLogs.length > 0,
       },
       todayIsWorkday,
+      tomorrowIsWorkday,
       recentLogs: (logs || []).slice(0, 20), // 最近20条流水
     })
   } catch (e: any) {
