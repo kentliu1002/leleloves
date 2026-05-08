@@ -7,6 +7,7 @@ import CheckInButton from './CheckInButton'
 interface PointsData {
   total: number
   yesterday: { points: number; reason: string | null; hasRecord: boolean; date: string }
+  todayIsWorkday: boolean
 }
 
 const SUBJECT_CONFIG: Record<string, { gradient: string; icon: string }> = {
@@ -114,31 +115,34 @@ export default function ChildDashboard() {
   const displayDateStr = displayDateObj.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
   const isTodaySelected = selectedDate === last7Days[0];
 
-  // 📋 今日得分规则（根据星期几动态生成）
+  // 📋 今日得分规则（根据星期几+调休工作日动态生成）
   const getTodayScoreGuide = () => {
     const wd = new Date().getDay() // 0=日,1=一,...,6=六
-    if (wd >= 1 && wd <= 4) {
-      // 周一到周四：普通上学日
+    const isWorkday = (wd >= 1 && wd <= 4) || (pointsData?.todayIsWorkday ?? false)
+
+    if (isWorkday) {
+      // 普通上学日 / 调休工作日
+      const tag = pointsData?.todayIsWorkday && wd >= 5 ? '📋 今日调休得分规则' : '📋 今日得分规则'
       return {
-        title: '📋 今日得分规则',
+        title: tag,
         rows: [
-          { icon: '🏅', desc: '晚 9:00 前完成', pts: '+10', cls: 'g10' },
-          { icon: '⭐', desc: '晚 9:30 前完成', pts: '+8',  cls: 'g8'  },
-          { icon: '✨', desc: '今晚 12:00 前完成', pts: '+6',  cls: 'g6'  },
-          { icon: '😴', desc: '没完成',           pts: '0',   cls: 'g0'  },
+          { icon: '🏅', desc: '晚 9:00 前完成',    pts: '+10', cls: 'g10' },
+          { icon: '⭐', desc: '晚 9:30 前完成',    pts: '+8',  cls: 'g8'  },
+          { icon: '✨', desc: '今晚 12:00 前完成',  pts: '+6',  cls: 'g6'  },
+          { icon: '😴', desc: '没完成',             pts: '0',   cls: 'g0'  },
         ]
       }
     } else {
       // 周五/六/日：周末规则
-      const lastDay  = wd === 0 ? '今晚' : wd === 6 ? '明晚(周日)' : '周日晚'
-      const nextDay  = wd === 0 ? '明天(周一)' : wd === 6 ? '后天(周一)' : '周一'
+      const lastDay = wd === 0 ? '今晚' : wd === 6 ? '明晚(周日)' : '周日晚'
+      const nextDay = wd === 0 ? '明天(周一)' : wd === 6 ? '后天(周一)' : '周一'
       return {
         title: '📋 周末得分规则',
         rows: [
-          { icon: '🏅', desc: `${nextDay}中午前完成`, pts: '+10', cls: 'g10' },
-          { icon: '⭐', desc: `${nextDay}结束前完成`, pts: '+8',  cls: 'g8'  },
+          { icon: '🏅', desc: `${nextDay}中午前完成`,  pts: '+10', cls: 'g10' },
+          { icon: '⭐', desc: `${nextDay}结束前完成`,  pts: '+8',  cls: 'g8'  },
           { icon: '✨', desc: `${lastDay} 9:00 前完成`, pts: '+6',  cls: 'g6'  },
-          { icon: '😴', desc: '没完成',                pts: '0',   cls: 'g0'  },
+          { icon: '😴', desc: '没完成',                 pts: '0',   cls: 'g0'  },
         ]
       }
     }

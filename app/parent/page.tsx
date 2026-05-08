@@ -14,6 +14,7 @@ const SUBJECT_COLORS: Record<string,string> = {
 };
 
 type Tab = 'assign' | 'history' | 'points' | 'holidays';
+interface WorkdayOverride { id: string; date: string; note: string | null }
 
 interface Holiday { id: string; name: string; start_date: string; end_date: string }
 interface PointsLog { points: number; date: string; reason: string; source: string; day_type: string; created_at: string }
@@ -111,6 +112,44 @@ export default function ParentPage() {
       alert(`操作成功！${pts>0?'增加':'扣除'} ${Math.abs(pts)} 分`);
       setManualPoints(''); setManualReason(''); fetchPoints();
     } catch(e:any){ alert('失败：'+e.message); } finally{ setManualLoading(false); }
+  };
+
+  // ── 调休工作日相关 ────────────────────────────────────────────────────
+  const [workdays, setWorkdays] = useState<WorkdayOverride[]>([]);
+  const [wdDate, setWdDate] = useState('');
+  const [wdNote, setWdNote] = useState('');
+  const [wdLoading, setWdLoading] = useState(false);
+
+  const fetchWorkdays = async () => {
+    try {
+      const res = await fetch('/api/workdays');
+      if (res.ok) setWorkdays(await res.json());
+    } catch {}
+  };
+  useEffect(() => { if (activeTab === 'holidays') fetchWorkdays(); }, [activeTab]);
+
+  const handleAddWorkday = async () => {
+    if (!wdDate) { alert('请选择日期'); return; }
+    setWdLoading(true);
+    try {
+      const res = await fetch('/api/workdays', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: wdDate, note: wdNote })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      alert(`已将 ${wdDate} 设置为调休上学日`);
+      setWdDate(''); setWdNote(''); fetchWorkdays();
+    } catch (e: any) { alert('失败：' + e.message); } finally { setWdLoading(false); }
+  };
+
+  const handleDeleteWorkday = async (id: string, date: string) => {
+    if (!confirm(`确定取消「${date}」的调休设置吗？`)) return;
+    try {
+      const res = await fetch(`/api/workdays/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('删除失败');
+      fetchWorkdays();
+    } catch (e: any) { alert(e.message); }
   };
 
   // ── 假期相关 ──────────────────────────────────────────────────────────
@@ -328,6 +367,57 @@ export default function ParentPage() {
         {/* ── Tab 4：假期设置 ── */}
         {activeTab==='holidays' && (
           <div className="space-y-6">
+
+            {/* 调休工作日 */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-orange-100">
+              <h2 className="text-xl font-black text-slate-800 mb-1">💼 调休工作日设置</h2>
+              <p className="text-sm text-gray-500 font-medium mb-5">将原本的休息日（周五/六/日）标记为正常上学日，积分规则同步切换为上学日标准。</p>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold text-gray-600 mb-1">调休日期</label>
+                    <input type="date" value={wdDate} onChange={e=>setWdDate(e.target.value)}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-orange-400 focus:outline-none font-medium"/>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold text-gray-600 mb-1">备注（可选）</label>
+                    <input type="text" value={wdNote} onChange={e=>setWdNote(e.target.value)}
+                      placeholder="例：劳动节调休"
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-orange-400 focus:outline-none font-medium"/>
+                  </div>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-3 text-sm text-orange-700 font-medium">
+                  ⚠️ 只能设置周五/六/日。设置后该天会按普通上学日评分（晚9点前 +10分）。
+                </div>
+                <button onClick={handleAddWorkday} disabled={wdLoading}
+                  className={`w-full py-3 rounded-xl font-bold text-lg text-white transition-all ${wdLoading?'bg-gray-400':'bg-orange-500 active:scale-95'}`}>
+                  {wdLoading?'添加中...':'确认设置为调休上学日'}
+                </button>
+              </div>
+
+              {/* 已设置的调休日列表 */}
+              {workdays.length > 0 && (
+                <div className="mt-5 space-y-2">
+                  <div className="text-sm font-bold text-gray-500 mb-2">已设置的调休上学日：</div>
+                  {workdays.map(w => {
+                    const d = new Date(w.date + 'T12:00:00+08:00');
+                    const wdName = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+                    return (
+                      <div key={w.id} className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
+                        <div className="flex-1">
+                          <span className="font-black text-orange-700">{w.date}</span>
+                          <span className="ml-2 text-sm text-gray-500">（{wdName}）</span>
+                          {w.note && <span className="ml-2 text-sm text-gray-400">· {w.note}</span>}
+                        </div>
+                        <button onClick={()=>handleDeleteWorkday(w.id, w.date)}
+                          className="text-red-400 hover:text-red-600 font-bold text-sm flex-shrink-0">取消</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* 添加假期 */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
               <h2 className="text-xl font-black text-slate-800 mb-5">🏖️ 添加节假日</h2>

@@ -9,6 +9,7 @@ const supabase = createClient(
 )
 
 interface Holiday { id: string; name: string; start_date: string; end_date: string }
+interface WorkdayOverride { id: string; date: string; note: string | null }
 
 // ── 日期工具（全部使用北京时间字符串 YYYY-MM-DD）──────────────────────────
 
@@ -46,7 +47,9 @@ function isDayBeforeHoliday(dateStr: string, holidays: Holiday[]): boolean {
   return holidays.some(h => h.start_date === tomorrow)
 }
 
-function isNormalSchoolDay(dateStr: string, holidays: Holiday[]): boolean {
+function isNormalSchoolDay(dateStr: string, holidays: Holiday[], workdays: string[]): boolean {
+  // 调休工作日：即使是周末也按上学日计算
+  if (workdays.includes(dateStr)) return true
   const wd = weekday(dateStr)
   if (wd < 1 || wd > 4) return false          // 只有周一~周四
   if (isHolidayDay(dateStr, holidays)) return false
@@ -56,8 +59,10 @@ function isNormalSchoolDay(dateStr: string, holidays: Holiday[]): boolean {
 
 /** 判断该日期是否是某个"非正常窗口"的最后一天。
  *  返回窗口信息，否则 null。 */
-function getNonNormalWindow(dateStr: string, holidays: Holiday[]
+function getNonNormalWindow(dateStr: string, holidays: Holiday[], workdays: string[]
 ): { windowStart: string; windowEnd: string; label: string } | null {
+  // 调休工作日：不触发周末窗口
+  if (workdays.includes(dateStr)) return null
   // 优先：是否是某节假日的最后一天
   const holiday = holidays.find(h => h.end_date === dateStr)
   if (holiday) {
@@ -107,7 +112,7 @@ async function writePoints(
 
 // ── 主处理函数 ────────────────────────────────────────────────────────────
 
-async function scoreDay(yesterdayStr: string, holidays: Holiday[]) {
+async function scoreDay(yesterdayStr: string, holidays: Holiday[], workdays: string[]) {
   // 是否已经结算过
   const { data: exist } = await supabase
     .from('points_log')
@@ -117,9 +122,9 @@ async function scoreDay(yesterdayStr: string, holidays: Holiday[]) {
     .limit(1)
   if (exist && exist.length > 0) return { skipped: true, reason: '已结算' }
 
-  const window = getNonNormalWindow(yesterdayStr, holidays)
+  const window = getNonNormalWindow(yesterdayStr, holidays, workdays)
 
-  // ── 非正常上课日窗口 ──────────────────────────────────────────────────
+  // ── 非正常上课日窗口 ─────────────────────────────────────────────────
   if (window) {
     const bounds = {
       start: window.windowStart + 'T00:00:00+08:00',
@@ -147,8 +152,8 @@ async function scoreDay(yesterdayStr: string, holidays: Holiday[]) {
     return { points, reason: fullReason }
   }
 
-  // ── 正常上课日 ────────────────────────────────────────────────────────
-  if (isNormalSchoolDay(yesterdayStr, holidays)) {
+  // ── 正常上课日 ───────────────────────────────────────────────────────
+  if (isNormalSchoolDay(yesterdayStr, holidays, workdays)) {
     const bounds = {
       start: yesterdayStr + 'T00:00:00+08:00',
       end:   yesterdayStr + 'T23:59:59+08:00',
@@ -191,7 +196,9 @@ export async function POST(request: Request) {
     const yesterdayStr = toBJDateStr(new Date(Date.now() - 86_400_000))
 
     const { data: holidays } = await supabase.from('holidays').select('*')
-    const result = await scoreDay(yesterdayStr, holidays || [])
+    const { data: workdayRows } = await supabase.from('workday_overrides').select('date')
+    const workdays = (workdayRows || []).map((r: { date: string }) => r.date)
+    const result = await scoreDay(yesterdayStr, holidays || [], workdays)
 
     return NextResponse.json({ date: yesterdayStr, ...result })
   } catch (e: any) {
