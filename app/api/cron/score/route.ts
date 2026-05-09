@@ -112,18 +112,19 @@ function calcNormal(lastDone: Date, dateStr: string): { points: number; reason: 
  * restDays≥2（2天+休息）：倒数第二天 18:00→10 / 最后一天 12:00→8 / 最后一天 18:00→6
  */
 function calcNonNormal(lastDone: Date, windowEnd: string, restDays: number): { points: number; reason: string } {
+  const mult = restDays + 1
   if (restDays <= 1) {
-    // 1天假期规则
-    if (lastDone <= bjDeadline(windowEnd, 16,  0)) return { points: 10, reason: '假期作业（1天）16:00前完成 🏆' }
-    if (lastDone <= bjDeadline(windowEnd, 18,  0)) return { points:  8, reason: '假期作业（1天）18:00前完成 ⭐' }
-    if (lastDone <= bjDeadline(windowEnd, 21,  0)) return { points:  6, reason: '假期作业（1天）21:00前完成' }
+    // 1天假期规则（满分 = 10×2 = 20）
+    if (lastDone <= bjDeadline(windowEnd, 16,  0)) return { points: 10 * mult, reason: `假期作业（1天）16:00前完成 🏆` }
+    if (lastDone <= bjDeadline(windowEnd, 18,  0)) return { points:  8 * mult, reason: `假期作业（1天）18:00前完成 ⭐` }
+    if (lastDone <= bjDeadline(windowEnd, 21,  0)) return { points:  6 * mult, reason: `假期作业（1天）21:00前完成` }
     return { points: 0, reason: '假期作业（1天）21:00后未完成全部作业' }
   }
-  // 2天+假期规则
+  // 2天+假期规则（满分 = 10×(restDays+1)）
   const secondToLast = shiftDate(windowEnd, -1)
-  if (lastDone <= bjDeadline(secondToLast, 18,  0)) return { points: 10, reason: '假期作业 倒数第二天18:00前完成 🏆' }
-  if (lastDone <= bjDeadline(windowEnd,    12,  0)) return { points:  8, reason: '假期作业 最后一天12:00前完成 ⭐' }
-  if (lastDone <= bjDeadline(windowEnd,    18,  0)) return { points:  6, reason: '假期作业 最后一天18:00前完成' }
+  if (lastDone <= bjDeadline(secondToLast, 18,  0)) return { points: 10 * mult, reason: `假期作业 倒数第二天18:00前完成 🏆` }
+  if (lastDone <= bjDeadline(windowEnd,    12,  0)) return { points:  8 * mult, reason: `假期作业 最后一天12:00前完成 ⭐` }
+  if (lastDone <= bjDeadline(windowEnd,    18,  0)) return { points:  6 * mult, reason: `假期作业 最后一天18:00前完成` }
   return { points: 0, reason: '假期作业 最后一天18:00后未完成全部作业' }
 }
 

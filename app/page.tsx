@@ -10,6 +10,7 @@ interface PointsData {
   todayIsWorkday: boolean
   tomorrowIsWorkday: boolean
   yesterdayWasWorkday: boolean
+  windowRestDays: number | null
 }
 
 const SUBJECT_CONFIG: Record<string, { gradient: string; icon: string }> = {
@@ -123,6 +124,8 @@ export default function ChildDashboard() {
     const todayWorkday     = pointsData?.todayIsWorkday      ?? false
     const tomorrowWorkday  = pointsData?.tomorrowIsWorkday   ?? false
     const yesterdayWorkday = pointsData?.yesterdayWasWorkday ?? false
+    const restDays         = pointsData?.windowRestDays      ?? 2
+    const mult             = restDays + 1
 
     // ── 上学日：周一~周四 / 调休当天 / 明天调休（今晚按上学日截止）
     const isSchoolDay = (wd >= 1 && wd <= 4) || todayWorkday || tomorrowWorkday
@@ -144,24 +147,24 @@ export default function ChildDashboard() {
     // ── 周日
     if (wd === 0) {
       if (yesterdayWorkday) {
-        // 昨天（周六）是调休上班日 → 只有今天1天假，截止更早
+        // 昨天（周六）是调休上班日 → 只有今天1天假
         return {
-          title: '📋 今日截止规则（仅1天假期）',
+          title: `📋 今日截止规则（假期×${mult}）`,
           rows: [
-            { icon: '🏅', desc: '下午 4:00 前完成', pts: '+10', cls: 'g10' },
-            { icon: '⭐', desc: '下午 6:00 前完成', pts: '+8',  cls: 'g8'  },
-            { icon: '✨', desc: '晚上 9:00 前完成', pts: '+6',  cls: 'g6'  },
-            { icon: '😴', desc: '没完成',           pts: '0',   cls: 'g0'  },
+            { icon: '🏅', desc: '下午 4:00 前完成', pts: `+${10 * mult}`, cls: 'g10' },
+            { icon: '⭐', desc: '下午 6:00 前完成', pts: `+${8  * mult}`, cls: 'g8'  },
+            { icon: '✨', desc: '晚上 9:00 前完成', pts: `+${6  * mult}`, cls: 'g6'  },
+            { icon: '😴', desc: '没完成',           pts: '0',             cls: 'g0'  },
           ]
         }
       }
       // 正常双休周日（最后一天）—— 10分窗口昨天已过
       return {
-        title: '📋 周日截止规则（最后一天）',
+        title: `📋 周日截止规则（假期×${mult}）`,
         rows: [
-          { icon: '⭐', desc: '中午 12:00 前完成', pts: '+8', cls: 'g8'  },
-          { icon: '✨', desc: '下午 6:00 前完成',  pts: '+6', cls: 'g6'  },
-          { icon: '😴', desc: '下午6点后未完成',   pts: '0',  cls: 'g0'  },
+          { icon: '⭐', desc: '中午 12:00 前完成', pts: `+${8 * mult}`, cls: 'g8'  },
+          { icon: '✨', desc: '下午 6:00 前完成',  pts: `+${6 * mult}`, cls: 'g6'  },
+          { icon: '😴', desc: '下午6点后未完成',   pts: '0',            cls: 'g0'  },
         ]
       }
     }
@@ -169,24 +172,24 @@ export default function ChildDashboard() {
     // ── 周六（非调休，正常休息）
     if (wd === 6) {
       return {
-        title: '📋 周末得分规则（今天第1天）',
+        title: `📋 周末得分规则（假期×${mult}）`,
         rows: [
-          { icon: '🏅', desc: '今天下午 6:00 前完成',    pts: '+10', cls: 'g10' },
-          { icon: '⭐', desc: '明天(周日)中午前完成',    pts: '+8',  cls: 'g8'  },
-          { icon: '✨', desc: '明天(周日)下午 6:00 前完成', pts: '+6',  cls: 'g6'  },
-          { icon: '😴', desc: '没完成',                  pts: '0',   cls: 'g0'  },
+          { icon: '🏅', desc: '今天下午 6:00 前完成',    pts: `+${10 * mult}`, cls: 'g10' },
+          { icon: '⭐', desc: '明天(周日)中午前完成',    pts: `+${8  * mult}`, cls: 'g8'  },
+          { icon: '✨', desc: '明天(周日)下午 6:00 前完成', pts: `+${6 * mult}`, cls: 'g6'  },
+          { icon: '😴', desc: '没完成',                  pts: '0',             cls: 'g0'  },
         ]
       }
     }
 
     // ── 周五（正常双休前）
     return {
-      title: '📋 周末得分规则',
+      title: `📋 周末得分规则（假期×${mult}）`,
       rows: [
-        { icon: '🏅', desc: '明天(周六)下午 6:00 前完成', pts: '+10', cls: 'g10' },
-        { icon: '⭐', desc: '周日中午 12:00 前完成',      pts: '+8',  cls: 'g8'  },
-        { icon: '✨', desc: '周日下午 6:00 前完成',       pts: '+6',  cls: 'g6'  },
-        { icon: '😴', desc: '没完成',                    pts: '0',   cls: 'g0'  },
+        { icon: '🏅', desc: '明天(周六)下午 6:00 前完成', pts: `+${10 * mult}`, cls: 'g10' },
+        { icon: '⭐', desc: '周日中午 12:00 前完成',      pts: `+${8  * mult}`, cls: 'g8'  },
+        { icon: '✨', desc: '周日下午 6:00 前完成',       pts: `+${6  * mult}`, cls: 'g6'  },
+        { icon: '😴', desc: '没完成',                    pts: '0',             cls: 'g0'  },
       ]
     }
   }
