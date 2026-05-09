@@ -24,6 +24,44 @@ function holidayDays(h: Holiday): number {
   ) + 1
 }
 
+/** 返回今天所属的积分窗口（windowStart ~ windowEnd），上学日返回 null */
+function getWindowForDay(
+  todayStr: string,
+  holidays: Holiday[],
+  workdays: string[]
+): { windowStart: string; windowEnd: string } | null {
+  const wd = new Date(todayStr + 'T12:00:00+08:00').getDay()
+  const tomorrowStr  = shiftDate(todayStr,  1)
+  const yesterdayStr = shiftDate(todayStr, -1)
+
+  // 今天在节假日内（任意一天）
+  const holiday = holidays.find(h => todayStr >= h.start_date && todayStr <= h.end_date)
+  if (holiday) return { windowStart: shiftDate(holiday.start_date, -1), windowEnd: holiday.end_date }
+
+  // 今天是放假前一天
+  const upcomingHoliday = holidays.find(h => h.start_date === tomorrowStr)
+  if (upcomingHoliday) return { windowStart: todayStr, windowEnd: upcomingHoliday.end_date }
+
+  // 周日
+  if (wd === 0) {
+    const windowStart = workdays.includes(yesterdayStr) ? yesterdayStr : shiftDate(todayStr, -2)
+    return { windowStart, windowEnd: todayStr }
+  }
+
+  // 周六（非调休）
+  if (wd === 6 && !workdays.includes(todayStr)) {
+    return { windowStart: yesterdayStr, windowEnd: tomorrowStr }
+  }
+
+  // 周五（非调休，明天也不是调休上班日）
+  if (wd === 5 && !workdays.includes(tomorrowStr)) {
+    return { windowStart: todayStr, windowEnd: shiftDate(todayStr, 2) }
+  }
+
+  // 正常上学日
+  return null
+}
+
 /** 返回今天所在积分窗口的实际休息天数（restDays），上学日返回 null */
 function getWindowRestDays(
   todayStr: string,
@@ -97,6 +135,7 @@ export async function GET() {
     const yesterdayWasWorkday = workdays.includes(ydayStr)
 
     const windowRestDays = getWindowRestDays(todayStr, holidayRows || [], workdays)
+    const currentWindow  = getWindowForDay(todayStr, holidayRows || [], workdays)
 
     return NextResponse.json({
       total,
@@ -110,6 +149,7 @@ export async function GET() {
       tomorrowIsWorkday,
       yesterdayWasWorkday,
       windowRestDays,
+      currentWindow,       // 今天所属窗口的起止日期，供学生端聚合作业用
       recentLogs: (logs || []).slice(0, 20), // 最近20条流水
     })
   } catch (e: any) {

@@ -11,6 +11,7 @@ interface PointsData {
   tomorrowIsWorkday: boolean
   yesterdayWasWorkday: boolean
   windowRestDays: number | null
+  currentWindow: { windowStart: string; windowEnd: string } | null
 }
 
 const SUBJECT_CONFIG: Record<string, { gradient: string; icon: string }> = {
@@ -108,15 +109,34 @@ export default function ChildDashboard() {
     doc.body.appendChild(content);
   };
 
-  // 💡 核心逻辑：只过滤出“当前选中日期”的作业
-  const displayHomework = allHomework.filter((item: any) => 
-    new Date(item.created_at).toLocaleDateString() === selectedDate
-  );
+  const isTodaySelected = selectedDate === last7Days[0];
+
+  // 将 ISO 时间戳转为北京日期字符串 YYYY-MM-DD（用于窗口范围比较）
+  const toBJDate = (ts: string) =>
+    new Date(new Date(ts).getTime() + 8 * 3600_000).toISOString().slice(0, 10)
+
+  // 今天所属的积分窗口（假期/周末时非空）
+  const currentWindow = pointsData?.currentWindow ?? null
+
+  // 💡 作业过滤：
+  //   - 选的是「今天」且处于非正常窗口 → 聚合整个窗口内的作业（放假前一天到假期最后一天）
+  //   - 其他情况 → 只显示当日作业
+  const displayHomework = (() => {
+    if (isTodaySelected && currentWindow) {
+      const { windowStart, windowEnd } = currentWindow
+      return allHomework.filter((item: any) => {
+        const d = toBJDate(item.created_at)
+        return d >= windowStart && d <= windowEnd
+      })
+    }
+    return allHomework.filter((item: any) =>
+      new Date(item.created_at).toLocaleDateString() === selectedDate
+    )
+  })()
 
   // 动态计算顶部面板的显示信息
   const displayDateObj = new Date(selectedDate);
   const displayDateStr = displayDateObj.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
-  const isTodaySelected = selectedDate === last7Days[0];
 
   // 📋 今日得分规则（根据星期几+调休工作日动态生成）
   const getTodayScoreGuide = () => {
@@ -465,9 +485,9 @@ export default function ChildDashboard() {
           <div className="hq-rocket">🚀</div>
 
           <div className="hq-info">
-            <div className="hq-label">🛸 {isTodaySelected ? '今日任务中心' : '历史作业回顾'}</div>
-            <div className="hq-date">{displayDateStr}</div>
-            <div className="hq-sub">加油，乐乐！今天的任务等你来完成！</div>
+            <div className="hq-label">🛸 {isTodaySelected ? (currentWindow ? '假期/周末任务中心' : '今日任务中心') : '历史作业回顾'}</div>
+            <div className="hq-date">{isTodaySelected && currentWindow ? `${currentWindow.windowStart} ~ ${currentWindow.windowEnd}` : displayDateStr}</div>
+            <div className="hq-sub">{isTodaySelected && currentWindow ? '以下是整个假期/周末窗口的全部作业，加油完成！' : '加油，乐乐！今天的任务等你来完成！'}</div>
           </div>
 
           <div className="hq-progress">
