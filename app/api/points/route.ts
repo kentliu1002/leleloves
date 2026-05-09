@@ -42,8 +42,11 @@ function getWindowRestDays(
   const beforeHoliday = holidays.find(h => h.start_date === tomorrowStr)
   if (beforeHoliday) return holidayDays(beforeHoliday)
 
-  // 3. 今天是周六（非调休上班）
-  if (wd === 6 && !workdays.includes(todayStr)) return 2
+  // 3a. 今天是调休周六（上班日）→ 明天（周日）是唯一休息日，restDays=1
+  if (wd === 6 && workdays.includes(todayStr)) return 1
+
+  // 3b. 今天是正常周六（非调休）→ 双休两天
+  if (wd === 6) return 2
 
   // 4. 今天是周日
   if (wd === 0) return workdays.includes(ydayStr) ? 1 : 2

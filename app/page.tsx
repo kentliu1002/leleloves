@@ -130,8 +130,20 @@ export default function ChildDashboard() {
     // ── 上学日：周一~周四 / 调休当天 / 明天调休（今晚按上学日截止）
     const isSchoolDay = (wd >= 1 && wd <= 4) || todayWorkday || tomorrowWorkday
     if (isSchoolDay) {
+      // 调休周六特殊处理：今天是上班日，但明天（周日）是唯一假期
+      // 显示明日假期窗口规则，让学生了解明天的积分策略
+      if (todayWorkday && wd === 6) {
+        return {
+          title: `📋 明日假期规则（假期×${mult}）`,
+          rows: [
+            { icon: '🏅', desc: '明天下午 4:00 前完成', pts: `+${10 * mult}`, cls: 'g10' },
+            { icon: '⭐', desc: '明天下午 6:00 前完成', pts: `+${8  * mult}`, cls: 'g8'  },
+            { icon: '✨', desc: '明天晚上 9:00 前完成', pts: `+${6  * mult}`, cls: 'g6'  },
+            { icon: '😴', desc: '没完成',              pts: '0',             cls: 'g0'  },
+          ]
+        }
+      }
       let tag = '📋 今日得分规则'
-      if (todayWorkday && wd >= 5)        tag = '📋 今日调休得分规则'
       if (!todayWorkday && tomorrowWorkday) tag = '📋 明日调休·今晚截止规则'
       return {
         title: tag,
@@ -429,16 +441,22 @@ export default function ChildDashboard() {
           </div>
           <div className="points-divider" />
           <div className="points-guide">
-            <div className="guide-title">{scoreGuide.title}</div>
-            <div className="guide-rows">
-              {scoreGuide.rows.map((r, i) => (
-                <div key={i} className="guide-row">
-                  <span className="guide-icon">{r.icon}</span>
-                  <span className="guide-desc">{r.desc}</span>
-                  <span className={`guide-pts ${r.cls}`}>{r.pts}分</span>
+            {pointsData ? (
+              <>
+                <div className="guide-title">{scoreGuide.title}</div>
+                <div className="guide-rows">
+                  {scoreGuide.rows.map((r, i) => (
+                    <div key={i} className="guide-row">
+                      <span className="guide-icon">{r.icon}</span>
+                      <span className="guide-desc">{r.desc}</span>
+                      <span className={`guide-pts ${r.cls}`}>{r.pts}分</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="guide-title" style={{color:'#6c84aa'}}>积分规则加载中…</div>
+            )}
           </div>
         </div>
 
