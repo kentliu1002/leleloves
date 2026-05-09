@@ -557,32 +557,30 @@ export default function ChildDashboard() {
               </div>
 
               <div className="card-actions">
+                {item.file_url && (
+                  <>
+                    <a
+                      href={item.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="act-btn btn-preview"
+                    >
+                      👀 预览
+                    </a>
+                    <button
+                      className="act-btn btn-print"
+                      onClick={(e) => handlePrint(e, item.file_url)}
+                    >
+                      🖨️ 打印
+                    </button>
+                  </>
+                )}
                 {item.is_completed ? (
                   <div className="done-badge">✅ 已完成打卡！</div>
                 ) : (
-                  <>
-                    {item.file_url && (
-                      <>
-                        <a
-                          href={item.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="act-btn btn-preview"
-                        >
-                          👀 预览
-                        </a>
-                        <button
-                          className="act-btn btn-print"
-                          onClick={(e) => handlePrint(e, item.file_url)}
-                        >
-                          🖨️ 打印
-                        </button>
-                      </>
-                    )}
-                    <div style={{ width: '100%', fontWeight: 'bold' }}>
-                      <CheckInButton id={item.id} isCompleted={item.is_completed} />
-                    </div>
-                  </>
+                  <div style={{ width: '100%', fontWeight: 'bold' }}>
+                    <CheckInButton id={item.id} isCompleted={item.is_completed} />
+                  </div>
                 )}
               </div>
 
