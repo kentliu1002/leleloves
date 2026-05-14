@@ -63,31 +63,34 @@ export async function uploadHomework(formData: FormData) {
   if (dbError) throw new Error(dbError.message)
 }
 
-// 3. 孩子端拍照打卡
+// 3. 孩子端拍照打卡（支持多张）
 export async function completeHomework(formData: FormData) {
   const id = formData.get('id') as string
-  const file = formData.get('file') as File | null
-  
-  let proofUrl = null
-  
-  // 处理打卡照片上传
-  if (file && file.size > 0) {
-    const fileExt = file.name.split('.').pop() || 'png'
-    const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-    
-    const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file)
-    if (uploadError) throw new Error("打卡图片上传失败: " + uploadError.message)
-    
-    const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(fileName)
-    proofUrl = publicUrlData.publicUrl
+  const files = formData.getAll('file') as File[]
+
+  const proofUrls: string[] = []
+
+  for (const file of files) {
+    if (file && file.size > 0) {
+      const fileExt = file.name.split('.').pop() || 'png'
+      const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file)
+      if (uploadError) throw new Error("打卡图片上传失败: " + uploadError.message)
+
+      const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(fileName)
+      proofUrls.push(publicUrlData.publicUrl)
+    }
   }
+
+  const proofValue = proofUrls.length > 0 ? JSON.stringify(proofUrls) : null
 
   // 更新数据库状态（同时记录打卡时间，供积分系统使用）
   const { error } = await supabase
     .from('homework')
-    .update({ is_completed: true, proof_image: proofUrl, completed_at: new Date().toISOString() })
+    .update({ is_completed: true, proof_image: proofValue, completed_at: new Date().toISOString() })
     .eq('id', id)
-    
+
   if (error) throw new Error(error.message)
 }
 
@@ -106,10 +109,14 @@ export async function deleteHomework(ids: string[]) {
         const fileName = item.file_url.split('/').pop()
         if (fileName) await supabase.storage.from('attachments').remove([fileName])
       }
-      // 删掉孩子打卡拍的照片
+      // 删掉孩子打卡拍的照片（兼容单 URL 和 JSON 数组两种格式）
       if (item.proof_image) {
-        const proofName = item.proof_image.split('/').pop()
-        if (proofName) await supabase.storage.from('attachments').remove([proofName])
+        let proofUrls: string[] = []
+        try { proofUrls = JSON.parse(item.proof_image) } catch { proofUrls = [item.proof_image] }
+        for (const url of proofUrls) {
+          const proofName = url.split('/').pop()
+          if (proofName) await supabase.storage.from('attachments').remove([proofName])
+        }
       }
     }
   }
