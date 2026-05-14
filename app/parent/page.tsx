@@ -21,6 +21,7 @@ interface PointsLog { points: number; date: string; reason: string; source: stri
 
 export default function ParentPage() {
   const [activeTab, setActiveTab] = useState<Tab>('assign');
+  const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set());
 
   // ── 作业相关 ──────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -289,6 +290,25 @@ export default function ParentPage() {
                             </div>
                           ):null
                         })()}
+                        {item.ai_feedback && (
+                          <div className="w-full">
+                            <button
+                              onClick={() => setExpandedFeedback(prev => {
+                                const s = new Set(prev)
+                                prev.has(item.id) ? s.delete(item.id) : s.add(item.id)
+                                return s
+                              })}
+                              className="w-full text-xs font-bold py-1.5 px-3 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                            >
+                              {expandedFeedback.has(item.id) ? '▲ 收起完成情况' : '📊 查看作业完成情况'}
+                            </button>
+                            {expandedFeedback.has(item.id) && (
+                              <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs text-slate-600 leading-relaxed whitespace-pre-wrap border border-slate-200">
+                                {item.ai_feedback}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ):(
                       <div className="flex flex-col items-center gap-2">

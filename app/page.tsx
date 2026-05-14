@@ -30,6 +30,9 @@ export default function ChildDashboard() {
   const [allHomework, setAllHomework] = useState<any[]>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [pointsData, setPointsData] = useState<PointsData | null>(null)
+  const [analyzing, setAnalyzing] = useState<Set<string>>(new Set())
+  const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
+  const [localFeedback, setLocalFeedback] = useState<Record<string, string>>({})
   
   // 📅 生成过去7天的日期数组
   const last7Days = Array.from({length: 7}, (_, i) => {
@@ -108,6 +111,24 @@ export default function ChildDashboard() {
     
     doc.body.appendChild(content);
   };
+
+  const handleAnalyze = async (id: string) => {
+    setAnalyzing(prev => new Set(prev).add(id))
+    try {
+      const res = await fetch('/api/homework/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+      const data = await res.json()
+      if (data.feedback) {
+        setLocalFeedback(prev => ({ ...prev, [id]: data.feedback }))
+        setExpandedFeedback(prev => new Set(prev).add(id))
+      }
+    } finally {
+      setAnalyzing(prev => { const s = new Set(prev); s.delete(id); return s })
+    }
+  }
 
   const isTodaySelected = selectedDate === last7Days[0];
 
@@ -596,7 +617,48 @@ export default function ChildDashboard() {
                   </>
                 )}
                 {item.is_completed ? (
-                  <div className="done-badge">✅ 已完成打卡！</div>
+                  <>
+                    <div className="done-badge">✅ 已完成打卡！</div>
+                    {(() => {
+                      const feedback = localFeedback[item.id] || item.ai_feedback
+                      if (feedback) {
+                        const expanded = expandedFeedback.has(item.id)
+                        return (
+                          <div style={{ width: '100%', marginTop: 8 }}>
+                            <button
+                              onClick={() => setExpandedFeedback(prev => {
+                                const s = new Set(prev)
+                                expanded ? s.delete(item.id) : s.add(item.id)
+                                return s
+                              })}
+                              style={{ fontSize: 13, color: '#6366f1', fontWeight: 'bold', background: '#eef2ff',
+                                border: 'none', borderRadius: 8, padding: '6px 12px', width: '100%', cursor: 'pointer' }}
+                            >
+                              {expanded ? '▲ 收起AI分析' : '📊 查看AI分析结果'}
+                            </button>
+                            {expanded && (
+                              <div style={{ marginTop: 8, padding: '12px', background: '#f8fafc', borderRadius: 10,
+                                fontSize: 13, lineHeight: 1.7, color: '#334155', whiteSpace: 'pre-wrap',
+                                border: '1px solid #e2e8f0' }}>
+                                {feedback}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      }
+                      return (
+                        <button
+                          onClick={() => handleAnalyze(item.id)}
+                          disabled={analyzing.has(item.id)}
+                          style={{ marginTop: 8, width: '100%', fontSize: 13, fontWeight: 'bold', color: '#fff',
+                            background: analyzing.has(item.id) ? '#94a3b8' : '#6366f1',
+                            border: 'none', borderRadius: 8, padding: '8px 0', cursor: 'pointer' }}
+                        >
+                          {analyzing.has(item.id) ? '🤖 AI分析中...' : '🤖 AI检查作业'}
+                        </button>
+                      )
+                    })()}
+                  </>
                 ) : (
                   <div style={{ width: '100%', fontWeight: 'bold' }}>
                     <CheckInButton id={item.id} isCompleted={item.is_completed} />
