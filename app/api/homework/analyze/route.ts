@@ -12,8 +12,8 @@ export async function POST(request: Request) {
   const { id } = await request.json()
 
   const { data: hw, error } = await supabase
-    .from('homework').select('content, proof_image, ai_feedback').eq('id', id).single()
-  if (error || !hw) return NextResponse.json({ error: '作业不存在' }, { status: 404 })
+    .from('homework').select('*').eq('id', id).single()
+  if (error || !hw) return NextResponse.json({ error: '作业不存在', detail: error?.message }, { status: 404 })
 
   if (hw.ai_feedback) return NextResponse.json({ feedback: hw.ai_feedback })
 
