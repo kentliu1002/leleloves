@@ -26,6 +26,16 @@ const SUBJECT_CONFIG: Record<string, { gradient: string; icon: string }> = {
 }
 const DEFAULT_CFG = { gradient: 'linear-gradient(180deg,#495057,#212529)', icon: '📝' }
 
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/#{1,6}\s*/g, '')
+    .replace(/\*\*([^*]*)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^[\*\-]\s+/gm, '• ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export default function ChildDashboard() {
   const [allHomework, setAllHomework] = useState<any[]>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -644,7 +654,7 @@ export default function ChildDashboard() {
                               {expanded ? '▲ 收起AI分析' : '📊 查看AI分析结果'}
                             </button>
                             {expanded && (
-                              <div className="ai-content-box">{feedback}</div>
+                              <div className="ai-content-box">{cleanMarkdown(feedback)}</div>
                             )}
                           </>
                         )

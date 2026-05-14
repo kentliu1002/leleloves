@@ -3,6 +3,16 @@ import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/#{1,6}\s*/g, '')           // 去掉 ### 标题符
+    .replace(/\*\*([^*]*)\*\*/g, '$1')   // **加粗** → 普通文字
+    .replace(/\*([^*]+)\*/g, '$1')       // *斜体* → 普通文字
+    .replace(/^[\*\-]\s+/gm, '• ')       // * / - 列表 → •
+    .replace(/\n{3,}/g, '\n\n')          // 多余空行合并为一行
+    .trim()
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -26,7 +36,7 @@ export async function POST(request: Request) {
   const content: any[] = [
     {
       type: 'text',
-      text: `你是一位认真负责的小学老师助手。以下是布置给学生的作业：\n\n【作业内容】${hw.content}\n\n学生已完成打卡，以下是学生的作业照片（共${imageUrls.length}张）。请仔细分析：\n1. 学生是否完成了全部作业？\n2. 哪些题目或内容有错误？请明确指出并解释原因。\n3. 哪些地方完成得好？\n\n请用简洁清晰的中文回复，方便学生和家长阅读。如果照片模糊看不清，请说明。`
+      text: `你是一位认真负责的小学老师助手。以下是布置给学生的作业：\n\n【作业内容】${hw.content}\n\n学生已完成打卡，以下是学生的作业照片（共${imageUrls.length}张）。请仔细分析并按以下格式回复，不要使用任何Markdown格式（不要用#、*、**、- 等符号）：\n\n1. 完成情况\n说明学生是否完成了全部作业内容。\n\n2. 错题分析\n如有错误，指出题号和错误原因；如无错误，请说明。\n\n3. 表扬与建议\n指出做得好的地方，并给出一条具体建议。\n\n语气友好简洁，方便学生和家长阅读。如果照片模糊看不清，请说明。`
     },
     ...imageUrls.map((url: string) => ({ type: 'image_url', image_url: { url } }))
   ]
@@ -40,7 +50,8 @@ export async function POST(request: Request) {
     body: JSON.stringify({ model: 'qwen3.5-plus', messages: [{ role: 'user', content }] })
   })
   const aiData = await aiRes.json()
-  const feedback = aiData.choices?.[0]?.message?.content || 'AI 分析失败，请稍后重试'
+  const raw = aiData.choices?.[0]?.message?.content || 'AI 分析失败，请稍后重试'
+  const feedback = cleanMarkdown(raw)
 
   await supabase.from('homework').update({ ai_feedback: feedback }).eq('id', id)
 

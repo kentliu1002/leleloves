@@ -19,6 +19,16 @@ interface WorkdayOverride { id: string; date: string; note: string | null }
 interface Holiday { id: string; name: string; start_date: string; end_date: string }
 interface PointsLog { points: number; date: string; reason: string; source: string; day_type: string; created_at: string }
 
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/#{1,6}\s*/g, '')
+    .replace(/\*\*([^*]*)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^[\*\-]\s+/gm, '• ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export default function ParentPage() {
   const [activeTab, setActiveTab] = useState<Tab>('assign');
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set());
@@ -314,7 +324,7 @@ export default function ParentPage() {
                       </button>
                       {expandedFeedback.has(item.id) && (
                         <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-600 leading-relaxed whitespace-pre-wrap border border-slate-200">
-                          {item.ai_feedback}
+                          {cleanMarkdown(item.ai_feedback)}
                         </div>
                       )}
                     </div>
