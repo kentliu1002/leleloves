@@ -362,11 +362,13 @@ export default function ChildDashboard() {
         .hw-card {
           background: linear-gradient(135deg,#141b42,#0d1540);
           border: 2px solid rgba(59,91,219,.35); border-radius: 24px;
-          margin-bottom: 14px; overflow: hidden; display: flex;
+          margin-bottom: 14px; overflow: hidden; display: flex; flex-direction: column;
           box-shadow: 0 8px 30px rgba(0,0,0,.4); transition: transform .2s, box-shadow .2s;
         }
         .hw-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
         .hw-card.done  { border-color: rgba(47,158,68,.35); opacity: .82; }
+
+        .hw-card-main { display: flex; }
 
         .subj-band { width: 108px; flex-shrink: 0; display: flex; flex-direction: column;
           align-items: center; justify-content: center; padding: 18px 8px; position: relative; overflow: hidden; }
@@ -405,9 +407,13 @@ export default function ChildDashboard() {
           box-shadow: 0 4px 12px rgba(99,102,241,.4); }
         .btn-ai:disabled { background: linear-gradient(135deg,#94a3b8,#64748b);
           box-shadow: none; cursor: not-allowed; }
-        .ai-expand   { background: rgba(99,102,241,.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,.25); }
-        .ai-content-box { margin-top: 8px; padding: 12px; background: rgba(0,0,0,.2);
-          border-radius: 10px; font-size: 13px; line-height: 1.7; color: #cbd5e1;
+
+        .hw-ai-section { border-top: 1px solid rgba(255,255,255,.06);
+          padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+        .ai-expand   { background: rgba(99,102,241,.15); color: #a5b4fc;
+          border: 1px solid rgba(99,102,241,.3); border-radius: 13px; }
+        .ai-content-box { padding: 16px; background: rgba(0,0,0,.25);
+          border-radius: 14px; font-size: 14px; line-height: 1.8; color: #cbd5e1;
           white-space: pre-wrap; border: 1px solid rgba(255,255,255,.08); }
 
         /* ── 积分卡 ── */
@@ -600,82 +606,71 @@ export default function ChildDashboard() {
           return (
             <div key={item.id} className={`hw-card${item.is_completed ? ' done' : ''}`}>
 
-              <div className="subj-band" style={{ background: cfg.gradient }}>
-                <div className="subj-icon">{cfg.icon}</div>
-                <div className="subj-name">{item.subject}</div>
-              </div>
+              <div className="hw-card-main">
+                <div className="subj-band" style={{ background: cfg.gradient }}>
+                  <div className="subj-icon">{cfg.icon}</div>
+                  <div className="subj-name">{item.subject}</div>
+                </div>
 
-              <div className="card-body">
-                <div className="card-title">{item.content}</div>
-                <div className="card-meta">
-                  <span className="meta-chip">🕒 上传：{uploadTime}</span>
-                  {item.file_type === 'pdf'   && <span className="meta-chip">📄 PDF附件</span>}
-                  {item.file_type === 'image' && <span className="meta-chip">🖼️ 图片附件</span>}
-                  {item.file_type === 'word'  && <span className="meta-chip">📝 Word附件</span>}
+                <div className="card-body">
+                  <div className="card-title">{item.content}</div>
+                  <div className="card-meta">
+                    <span className="meta-chip">🕒 上传：{uploadTime}</span>
+                    {item.file_type === 'pdf'   && <span className="meta-chip">📄 PDF附件</span>}
+                    {item.file_type === 'image' && <span className="meta-chip">🖼️ 图片附件</span>}
+                    {item.file_type === 'word'  && <span className="meta-chip">📝 Word附件</span>}
+                  </div>
+                </div>
+
+                <div className="card-actions">
+                  {item.file_url && (
+                    <>
+                      <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="act-btn btn-preview">
+                        👀 预览
+                      </a>
+                      <button className="act-btn btn-print" onClick={(e) => handlePrint(e, item.file_url)}>
+                        🖨️ 打印
+                      </button>
+                    </>
+                  )}
+                  {item.is_completed ? (
+                    <div className="done-badge">✅ 已完成打卡！</div>
+                  ) : (
+                    <div style={{ width: '100%', fontWeight: 'bold' }}>
+                      <CheckInButton id={item.id} isCompleted={item.is_completed} />
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="card-actions">
-                {item.file_url && (
-                  <>
-                    <a
-                      href={item.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="act-btn btn-preview"
-                    >
-                      👀 预览
-                    </a>
-                    <button
-                      className="act-btn btn-print"
-                      onClick={(e) => handlePrint(e, item.file_url)}
-                    >
-                      🖨️ 打印
+              {item.is_completed && (() => {
+                const feedback = localFeedback[item.id] || item.ai_feedback
+                if (feedback) {
+                  const expanded = expandedFeedback.has(item.id)
+                  return (
+                    <div className="hw-ai-section">
+                      <button
+                        className="act-btn ai-expand"
+                        onClick={() => setExpandedFeedback(prev => {
+                          const s = new Set(prev)
+                          expanded ? s.delete(item.id) : s.add(item.id)
+                          return s
+                        })}
+                      >
+                        {expanded ? '▲ 收起AI分析' : '📊 查看AI分析结果'}
+                      </button>
+                      {expanded && <div className="ai-content-box">{cleanMarkdown(feedback)}</div>}
+                    </div>
+                  )
+                }
+                return (
+                  <div className="hw-ai-section">
+                    <button className="act-btn btn-ai" onClick={() => handleAnalyze(item.id)} disabled={analyzing.has(item.id)}>
+                      {analyzing.has(item.id) ? '🤖 AI分析中...' : '🤖 AI检查作业'}
                     </button>
-                  </>
-                )}
-                {item.is_completed ? (
-                  <>
-                    <div className="done-badge">✅ 已完成打卡！</div>
-                    {(() => {
-                      const feedback = localFeedback[item.id] || item.ai_feedback
-                      if (feedback) {
-                        const expanded = expandedFeedback.has(item.id)
-                        return (
-                          <>
-                            <button
-                              className="act-btn ai-expand"
-                              onClick={() => setExpandedFeedback(prev => {
-                                const s = new Set(prev)
-                                expanded ? s.delete(item.id) : s.add(item.id)
-                                return s
-                              })}
-                            >
-                              {expanded ? '▲ 收起AI分析' : '📊 查看AI分析结果'}
-                            </button>
-                            {expanded && (
-                              <div className="ai-content-box">{cleanMarkdown(feedback)}</div>
-                            )}
-                          </>
-                        )
-                      }
-                      return (
-                        <button
-                          className="act-btn btn-ai"
-                          onClick={() => handleAnalyze(item.id)}
-                          disabled={analyzing.has(item.id)}
-                        >
-                          {analyzing.has(item.id) ? '🤖 AI分析中...' : '🤖 AI检查作业'}
-                        </button>
-                      )
-                    })()}
-                  </>
-                ) : (
-                  <div style={{ width: '100%', fontWeight: 'bold' }}>
-                    <CheckInButton id={item.id} isCompleted={item.is_completed} />
                   </div>
-                )}
-              </div>
+                )
+              })()}
 
             </div>
           )
