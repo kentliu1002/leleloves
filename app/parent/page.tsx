@@ -274,7 +274,22 @@ export default function ParentPage() {
                   </div>
                   <div className="sm:w-48 sm:border-l-2 sm:border-gray-200 sm:pl-4 flex flex-col justify-center items-center gap-3">
                     {item.is_completed?(
-                      <span className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-full text-sm">✅ 已打卡</span>
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-full text-sm">✅ 已打卡</span>
+                        {(()=>{
+                          let urls:string[]=[]
+                          try{urls=JSON.parse(item.proof_image||'[]')}catch{if(item.proof_image)urls=[item.proof_image]}
+                          return urls.length>0?(
+                            <div className="flex gap-1 flex-wrap justify-center">
+                              {urls.map((url:string,i:number)=>(
+                                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                  <img src={url} alt={`打卡照片${i+1}`} className="w-16 h-16 object-cover rounded-lg border border-gray-200 hover:opacity-80 cursor-pointer"/>
+                                </a>
+                              ))}
+                            </div>
+                          ):null
+                        })()}
+                      </div>
                     ):(
                       <div className="flex flex-col items-center gap-2">
                         <span className="bg-orange-100 text-orange-600 font-bold px-3 py-1 rounded-full text-sm">⏳ 待完成</span>
