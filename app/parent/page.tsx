@@ -262,7 +262,8 @@ export default function ParentPage() {
             <div className="space-y-4">
               {filteredHomework.map(item=>(
                 <div key={item.id}
-                  className={`p-5 rounded-2xl border transition-all flex flex-col sm:flex-row gap-4 ${selectedIds.includes(item.id)?'bg-blue-50 border-blue-200':'bg-gray-50 border-gray-100'}`}>
+                  className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 ${selectedIds.includes(item.id)?'bg-blue-50 border-blue-200':'bg-gray-50 border-gray-100'}`}>
+                  <div className="flex flex-col sm:flex-row gap-4">
                   {!item.is_completed && (
                     <div className="pt-1"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={()=>setSelectedIds(p=>p.includes(item.id)?p.filter(i=>i!==item.id):[...p,item.id])} className="w-5 h-5 rounded cursor-pointer"/></div>
                   )}
@@ -290,25 +291,6 @@ export default function ParentPage() {
                             </div>
                           ):null
                         })()}
-                        {item.ai_feedback && (
-                          <div className="w-full">
-                            <button
-                              onClick={() => setExpandedFeedback(prev => {
-                                const s = new Set(prev)
-                                prev.has(item.id) ? s.delete(item.id) : s.add(item.id)
-                                return s
-                              })}
-                              className="w-full text-xs font-bold py-1.5 px-3 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
-                            >
-                              {expandedFeedback.has(item.id) ? '▲ 收起完成情况' : '📊 查看作业完成情况'}
-                            </button>
-                            {expandedFeedback.has(item.id) && (
-                              <div className="mt-2 p-3 bg-slate-50 rounded-lg text-xs text-slate-600 leading-relaxed whitespace-pre-wrap border border-slate-200">
-                                {item.ai_feedback}
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     ):(
                       <div className="flex flex-col items-center gap-2">
@@ -317,6 +299,26 @@ export default function ParentPage() {
                       </div>
                     )}
                   </div>
+                  </div>
+                  {item.is_completed && item.ai_feedback && (
+                    <div className="border-t border-gray-200 pt-3">
+                      <button
+                        onClick={() => setExpandedFeedback(prev => {
+                          const s = new Set(prev)
+                          prev.has(item.id) ? s.delete(item.id) : s.add(item.id)
+                          return s
+                        })}
+                        className="w-full text-sm font-bold py-2 px-4 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors text-center"
+                      >
+                        {expandedFeedback.has(item.id) ? '▲ 收起完成情况' : '📊 查看作业完成情况'}
+                      </button>
+                      {expandedFeedback.has(item.id) && (
+                        <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-600 leading-relaxed whitespace-pre-wrap border border-slate-200">
+                          {item.ai_feedback}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
               {filteredHomework.length===0&&<div className="text-center py-10 text-gray-400 font-medium">这个日期暂时没有作业记录哦。</div>}

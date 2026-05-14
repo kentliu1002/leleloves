@@ -391,6 +391,14 @@ export default function ChildDashboard() {
         .done-badge  { background: linear-gradient(135deg,#2f9e44,#155724); color: #fff;
           border-radius: 13px; padding: 13px 14px; font-size: 14px; font-weight: 900;
           text-align: center; box-shadow: 0 0 15px rgba(47,158,68,.4); width: 100%; }
+        .btn-ai      { background: linear-gradient(135deg,#6366f1,#4338ca); color: #fff;
+          box-shadow: 0 4px 12px rgba(99,102,241,.4); }
+        .btn-ai:disabled { background: linear-gradient(135deg,#94a3b8,#64748b);
+          box-shadow: none; cursor: not-allowed; }
+        .ai-expand   { background: rgba(99,102,241,.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,.25); }
+        .ai-content-box { margin-top: 8px; padding: 12px; background: rgba(0,0,0,.2);
+          border-radius: 10px; font-size: 13px; line-height: 1.7; color: #cbd5e1;
+          white-space: pre-wrap; border: 1px solid rgba(255,255,255,.08); }
 
         /* ── 积分卡 ── */
         .points-card {
@@ -624,35 +632,28 @@ export default function ChildDashboard() {
                       if (feedback) {
                         const expanded = expandedFeedback.has(item.id)
                         return (
-                          <div style={{ width: '100%', marginTop: 8 }}>
+                          <>
                             <button
+                              className="act-btn ai-expand"
                               onClick={() => setExpandedFeedback(prev => {
                                 const s = new Set(prev)
                                 expanded ? s.delete(item.id) : s.add(item.id)
                                 return s
                               })}
-                              style={{ fontSize: 13, color: '#6366f1', fontWeight: 'bold', background: '#eef2ff',
-                                border: 'none', borderRadius: 8, padding: '6px 12px', width: '100%', cursor: 'pointer' }}
                             >
                               {expanded ? '▲ 收起AI分析' : '📊 查看AI分析结果'}
                             </button>
                             {expanded && (
-                              <div style={{ marginTop: 8, padding: '12px', background: '#f8fafc', borderRadius: 10,
-                                fontSize: 13, lineHeight: 1.7, color: '#334155', whiteSpace: 'pre-wrap',
-                                border: '1px solid #e2e8f0' }}>
-                                {feedback}
-                              </div>
+                              <div className="ai-content-box">{feedback}</div>
                             )}
-                          </div>
+                          </>
                         )
                       }
                       return (
                         <button
+                          className="act-btn btn-ai"
                           onClick={() => handleAnalyze(item.id)}
                           disabled={analyzing.has(item.id)}
-                          style={{ marginTop: 8, width: '100%', fontSize: 13, fontWeight: 'bold', color: '#fff',
-                            background: analyzing.has(item.id) ? '#94a3b8' : '#6366f1',
-                            border: 'none', borderRadius: 8, padding: '8px 0', cursor: 'pointer' }}
                         >
                           {analyzing.has(item.id) ? '🤖 AI分析中...' : '🤖 AI检查作业'}
                         </button>
