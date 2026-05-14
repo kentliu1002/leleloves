@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       'Authorization': `Bearer ${process.env.DASHSCOPE_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ model: 'qwen-vl-plus', messages: [{ role: 'user', content }] })
+    body: JSON.stringify({ model: 'qwen3.5-plus', messages: [{ role: 'user', content }] })
   })
   const aiData = await aiRes.json()
   const feedback = aiData.choices?.[0]?.message?.content || 'AI 分析失败，请稍后重试'
