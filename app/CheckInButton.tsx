@@ -1,6 +1,5 @@
 'use client'
 import { useRef, useState } from 'react'
-import { completeHomework } from '../lib/actions'
 
 export default function CheckInButton({ id, isCompleted }: { id: string, isCompleted: boolean }) {
   const [loading, setLoading] = useState(false)
@@ -24,7 +23,11 @@ export default function CheckInButton({ id, isCompleted }: { id: string, isCompl
     formData.append('id', id)
     photos.forEach(f => formData.append('file', f))
     try {
-      await completeHomework(formData)
+      const res = await fetch('/api/homework/complete', { method: 'POST', body: formData })
+      const json = await res.json().catch(() => ({ success: false, error: `HTTP ${res.status}` }))
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `HTTP ${res.status}`)
+      }
       setDone(true)
       alert('打卡成功！太棒啦！🎉')
     } catch (error: any) {
