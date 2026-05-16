@@ -68,6 +68,10 @@ export async function completeHomework(formData: FormData) {
   const id = formData.get('id') as string
   const files = formData.getAll('file') as File[]
 
+  // 🔍 调试日志：每次打卡都记录入参情况
+  console.log('[checkin] id:', JSON.stringify(id), 'fileCount:', files.length,
+    'sizes:', files.map(f => f && f.size ? `${f.name}=${(f.size/1024).toFixed(0)}KB` : 'empty').join(','));
+
   // 守卫：避免 id 缺失时 .eq('id', null) 静默匹配 0 行造成"打卡成功但 DB 未更新"
   if (!id) throw new Error('作业 ID 缺失，可能是照片超过上传上限')
 
@@ -90,12 +94,14 @@ export async function completeHomework(formData: FormData) {
 
   // 更新数据库状态（同时记录打卡时间，供积分系统使用）
   // .select() 返回更新的行，便于校验是否真的命中
+  console.log('[checkin] updating id:', id, 'proofUrls:', proofUrls.length);
   const { data, error } = await supabase
     .from('homework')
     .update({ is_completed: true, proof_image: proofValue, completed_at: new Date().toISOString() })
     .eq('id', id)
     .select()
 
+  console.log('[checkin] update result error:', error, 'rows:', data?.length, 'returned:', JSON.stringify(data));
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) throw new Error(`作业 ${id} 未找到，更新失败`)
 }
