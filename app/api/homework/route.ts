@@ -84,9 +84,18 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { filename, file_url, file_type } = body;
+    const { filename, file_url } = body;
     let content = body.content || '';
     let extractedText = '';
+
+    // 根据实际 URL 后缀纠正 file_type（防止客户端传错）
+    let file_type = body.file_type as string;
+    if (file_url) {
+      const urlExt = file_url.split('?')[0].split('.').pop()?.toLowerCase() || '';
+      if (['mp3', 'm4a', 'wav', 'ogg', 'aac'].includes(urlExt)) file_type = 'audio';
+      else if (urlExt === 'pdf') file_type = 'pdf';
+      else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(urlExt)) file_type = 'image';
+    }
 
     // A. 处理 PDF 文本提取 (通过 URL 下载)
     if (file_type === 'pdf' && file_url) {
