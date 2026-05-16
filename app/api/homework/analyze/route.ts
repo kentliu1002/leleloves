@@ -77,7 +77,7 @@ ${hw.content}
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'qwen-vl-max-latest',  // 阿里旗舰视觉模型，比 qwen3.5-plus 视觉模式推理更强
+      model: 'qwen3.5-plus',
       messages: [{ role: 'user', content }],
       temperature: 0.1               // 降低随机性，减少瞎猜
     })
