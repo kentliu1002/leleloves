@@ -68,6 +68,9 @@ export async function completeHomework(formData: FormData) {
   const id = formData.get('id') as string
   const files = formData.getAll('file') as File[]
 
+  // 守卫：避免 id 缺失时 .eq('id', null) 静默匹配 0 行造成"打卡成功但 DB 未更新"
+  if (!id) throw new Error('作业 ID 缺失，可能是照片超过上传上限')
+
   const proofUrls: string[] = []
 
   for (const file of files) {
@@ -86,12 +89,15 @@ export async function completeHomework(formData: FormData) {
   const proofValue = proofUrls.length > 0 ? JSON.stringify(proofUrls) : null
 
   // 更新数据库状态（同时记录打卡时间，供积分系统使用）
-  const { error } = await supabase
+  // .select() 返回更新的行，便于校验是否真的命中
+  const { data, error } = await supabase
     .from('homework')
     .update({ is_completed: true, proof_image: proofValue, completed_at: new Date().toISOString() })
     .eq('id', id)
+    .select()
 
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error(`作业 ${id} 未找到，更新失败`)
 }
 
 // 4. 删除作业（支持单条和批量，并自动清理存储桶内的文件）
