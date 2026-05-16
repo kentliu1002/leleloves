@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getHomework } from '../lib/actions'
 import CheckInButton from './CheckInButton'
 
@@ -609,6 +609,18 @@ export default function ChildDashboard() {
         {displayHomework.map((item: any) => {
           const cfg = SUBJECT_CONFIG[item.subject] || DEFAULT_CFG
           const uploadTime = new Date(item.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+          // 解析附件：优先 file_urls 数组；否则回落到单个 file_url
+          let files: { url: string, type: string, filename?: string }[] = []
+          if (item.file_urls) {
+            try { files = JSON.parse(item.file_urls) } catch { files = [] }
+          }
+          if (files.length === 0 && item.file_url) {
+            files = [{ url: item.file_url, type: item.file_type || 'image' }]
+          }
+          const audioFiles = files.filter(f => f.type === 'audio')
+          const nonAudioFiles = files.filter(f => f.type !== 'audio')
+          const typeCounts: Record<string, number> = {}
+          files.forEach(f => { typeCounts[f.type] = (typeCounts[f.type] || 0) + 1 })
           return (
             <div key={item.id} className={`hw-card${item.is_completed ? ' done' : ''}`}>
 
@@ -622,24 +634,24 @@ export default function ChildDashboard() {
                   <div className="card-title">{item.content}</div>
                   <div className="card-meta">
                     <span className="meta-chip">🕒 上传：{uploadTime}</span>
-                    {item.file_type === 'pdf'   && <span className="meta-chip">📄 PDF附件</span>}
-                    {item.file_type === 'image' && <span className="meta-chip">🖼️ 图片附件</span>}
-                    {item.file_type === 'word'  && <span className="meta-chip">📝 Word附件</span>}
-                    {item.file_type === 'audio' && <span className="meta-chip">🎵 听力附件</span>}
+                    {typeCounts.pdf   > 0 && <span className="meta-chip">📄 PDF附件{typeCounts.pdf   > 1 ? ` ×${typeCounts.pdf}`   : ''}</span>}
+                    {typeCounts.image > 0 && <span className="meta-chip">🖼️ 图片附件{typeCounts.image > 1 ? ` ×${typeCounts.image}` : ''}</span>}
+                    {typeCounts.word  > 0 && <span className="meta-chip">📝 Word附件{typeCounts.word  > 1 ? ` ×${typeCounts.word}`  : ''}</span>}
+                    {typeCounts.audio > 0 && <span className="meta-chip">🎵 听力附件{typeCounts.audio > 1 ? ` ×${typeCounts.audio}` : ''}</span>}
                   </div>
                 </div>
 
                 <div className="card-actions">
-                  {item.file_url && item.file_type !== 'audio' && (
-                    <>
-                      <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="act-btn btn-preview">
-                        👀 预览
+                  {nonAudioFiles.map((f, i) => (
+                    <React.Fragment key={f.url}>
+                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="act-btn btn-preview">
+                        👀 预览{nonAudioFiles.length > 1 ? ` ${i + 1}` : ''}
                       </a>
-                      <button className="act-btn btn-print" onClick={(e) => handlePrint(e, item.file_url)}>
-                        🖨️ 打印
+                      <button className="act-btn btn-print" onClick={(e) => handlePrint(e, f.url)}>
+                        🖨️ 打印{nonAudioFiles.length > 1 ? ` ${i + 1}` : ''}
                       </button>
-                    </>
-                  )}
+                    </React.Fragment>
+                  ))}
                   {item.is_completed ? (
                     <div className="done-badge">✅ 已完成打卡！</div>
                   ) : (
@@ -650,12 +662,16 @@ export default function ChildDashboard() {
                 </div>
               </div>
 
-              {item.file_url && item.file_type === 'audio' && (
+              {audioFiles.length > 0 && (
                 <div className="hw-audio-section">
-                  <div className="audio-label">🎵 英语听力</div>
-                  <div className="audio-wrap">
-                    <audio controls src={item.file_url} className="audio-player" />
-                  </div>
+                  {audioFiles.map((f, i) => (
+                    <div key={f.url} style={{ marginBottom: i < audioFiles.length - 1 ? 12 : 0 }}>
+                      <div className="audio-label">🎵 英语听力{audioFiles.length > 1 ? ` ${i + 1}` : ''}</div>
+                      <div className="audio-wrap">
+                        <audio controls src={f.url} className="audio-player" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 

@@ -84,7 +84,7 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { filename, file_url } = body;
+    const { filename, file_url, file_urls } = body;
     let content = body.content || '';
     let extractedText = '';
 
@@ -137,6 +137,7 @@ export async function POST(request: Request) {
       subject: aiSubject,
       file_url: file_url,
       file_type: file_type,
+      file_urls: Array.isArray(file_urls) && file_urls.length > 0 ? JSON.stringify(file_urls) : null,
       is_completed: false
     }]);
 
