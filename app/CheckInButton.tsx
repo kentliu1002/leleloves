@@ -1,6 +1,39 @@
 'use client'
 import { useRef, useState } from 'react'
 
+// 客户端压缩：限长边 1600px、JPEG quality 0.82，原图>1MB 才压缩
+async function compressImage(file: File): Promise<File> {
+  if (file.size <= 1024 * 1024) return file   // <=1MB 直接放行
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result as string)
+    r.onerror = reject
+    r.readAsDataURL(file)
+  })
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image()
+    i.onload = () => resolve(i)
+    i.onerror = reject
+    i.src = dataUrl
+  })
+  const MAX = 1600
+  let { width, height } = img
+  if (width > MAX || height > MAX) {
+    const ratio = Math.min(MAX / width, MAX / height)
+    width = Math.round(width * ratio)
+    height = Math.round(height * ratio)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = width; canvas.height = height
+  canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas.toBlob 失败')), 'image/jpeg', 0.82)
+  )
+  // 失败保险：如果压完反而更大（罕见），回退原图
+  if (blob.size >= file.size) return file
+  return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+}
+
 export default function CheckInButton({ id, isCompleted }: { id: string, isCompleted: boolean }) {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(isCompleted)
@@ -27,7 +60,9 @@ export default function CheckInButton({ id, isCompleted }: { id: string, isCompl
       const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
       const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       const proofUrls: string[] = []
-      for (const photo of photos) {
+      for (const original of photos) {
+        // 客户端先压缩，加快上传和 AI 拉取速度
+        const photo = await compressImage(original)
         const ext = (photo.name.split('.').pop() || 'jpg').toLowerCase()
         const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
         const up = await fetch(`${SUPABASE_URL}/storage/v1/object/attachments/${fileName}`, {
