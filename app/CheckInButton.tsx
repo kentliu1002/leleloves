@@ -23,11 +23,36 @@ export default function CheckInButton({ id, isCompleted }: { id: string, isCompl
     formData.append('id', id)
     photos.forEach(f => formData.append('file', f))
     try {
-      const res = await fetch('/api/homework/complete', { method: 'POST', body: formData })
-      const json = await res.json().catch(() => ({ success: false, error: `HTTP ${res.status}` }))
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || `HTTP ${res.status}`)
+      // 1. 浏览器直接传图到 Supabase Storage（绕开 Vercel 4.5MB 请求体限制）
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      const proofUrls: string[] = []
+      for (const photo of photos) {
+        const ext = (photo.name.split('.').pop() || 'jpg').toLowerCase()
+        const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
+        const up = await fetch(`${SUPABASE_URL}/storage/v1/object/attachments/${fileName}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${SUPABASE_ANON}`,
+            apikey: SUPABASE_ANON,
+            'Content-Type': photo.type || 'image/jpeg',
+            'x-upsert': 'true'
+          },
+          body: photo
+        })
+        if (!up.ok) throw new Error(`图片上传失败 (${up.status})`)
+        proofUrls.push(`${SUPABASE_URL}/storage/v1/object/public/attachments/${fileName}`)
       }
+
+      // 2. 调 API 只传 URL 数组（payload < 1KB，安全）
+      const res = await fetch('/api/homework/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, proof_urls: proofUrls })
+      })
+      const json = await res.json().catch(() => ({ success: false, error: `HTTP ${res.status}` }))
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`)
+
       setDone(true)
       alert('打卡成功！太棒啦！🎉')
     } catch (error: any) {
@@ -83,7 +108,7 @@ export default function CheckInButton({ id, isCompleted }: { id: string, isCompl
             disabled={loading}
             className="flex-1 py-2.5 px-3 rounded-lg text-sm font-bold bg-green-500 text-white shadow-[0_4px_0_0_#16a34a] active:scale-95 transition-transform disabled:opacity-60"
           >
-            {loading ? '上传中...' : `✅ 完成打卡·v2(${photos.length}张)`}
+            {loading ? '上传中...' : `✅ 完成打卡(${photos.length}张)`}
           </button>
         )}
       </div>

@@ -11,29 +11,16 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData()
-    const id = formData.get('id') as string
-    const files = formData.getAll('file') as File[]
+    // 改为接收 JSON：{ id, proof_urls: [...] }
+    // 图片由浏览器直接传到 Supabase Storage，绕开 Vercel 4.5MB 请求体限制
+    const body = await request.json()
+    const id = body.id as string
+    const proofUrls = (body.proof_urls as string[]) || []
 
-    console.log('[complete-api] id:', id, 'fileCount:', files.length,
-      'sizes:', files.map(f => f && f.size ? `${f.name}=${(f.size / 1024).toFixed(0)}KB` : 'empty').join(','))
+    console.log('[complete-api] id:', id, 'proofUrls:', proofUrls.length)
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'id 缺失' }, { status: 400 })
-    }
-
-    const proofUrls: string[] = []
-    for (const file of files) {
-      if (file && file.size > 0) {
-        const fileExt = file.name.split('.').pop() || 'png'
-        const fileName = `proof-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-        const { error: uploadError } = await supabase.storage.from('attachments').upload(fileName, file)
-        if (uploadError) {
-          return NextResponse.json({ success: false, error: '图片上传失败: ' + uploadError.message }, { status: 500 })
-        }
-        const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(fileName)
-        proofUrls.push(publicUrlData.publicUrl)
-      }
     }
 
     const proofValue = proofUrls.length > 0 ? JSON.stringify(proofUrls) : null
