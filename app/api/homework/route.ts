@@ -16,45 +16,65 @@ const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
  * 🤖 AI 识别引擎 (百炼 Coding Plan 套餐模式)
  * 模型：qwen3.5-plus
  */
+const VALID_SUBJECTS = ["语文", "数学", "英语", "科学", "历史", "地理", "政治"];
+
+function matchSubjectFromText(text: string): string {
+  for (const s of VALID_SUBJECTS) {
+    if (text.includes(s)) return s;
+  }
+  return '其它';
+}
+
 async function analyzeHomeworkAI(params: { text?: string, filename?: string, imageUrl?: string }) {
-  if (!DASHSCOPE_API_KEY) return '其它';
+  if (!DASHSCOPE_API_KEY) return matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
   const isVision = !!params.imageUrl;
-  
+
+  // /no_think 禁用思考模式，避免 qwen3.5-plus 输出 <think> 块干扰匹配
   let messageContent: any;
   if (isVision) {
     messageContent = [
-      { type: "text", text: "判断这张作业图片的学科（语文、数学、英语、科学、历史、地理、政治、其它）。只输出一个学科名。" },
+      {
+        type: "text",
+        text: `/no_think 请判断下面这张作业图片属于哪个学科（只能从以下选项中选一个输出：语文、数学、英语、科学、历史、地理、政治、其它）。文件名参考：${params.filename || ''}。只输出学科名，不要其他文字。`
+      },
       { type: "image_url", image_url: { url: params.imageUrl } }
     ];
   } else {
-    messageContent = `判断作业学科。文件名: ${params.filename || '无'}, 内容: ${params.text || '无'}。只输出一个学科名称。`;
+    messageContent = `/no_think 判断作业学科（只输出：语文/数学/英语/科学/历史/地理/政治/其它 之一）。文件名: ${params.filename || '无'}, 内容: ${params.text || '无'}。`;
   }
 
   try {
     const response = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`, 
-        'Content-Type': 'application/json' 
+      headers: {
+        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'qwen3.5-plus', 
+        model: 'qwen3.5-plus',
         messages: [{ role: 'user', content: messageContent }]
       })
     });
-    
+
     const data = await response.json();
     const resultText = data.choices?.[0]?.message?.content || '';
-    
-    // 匹配合法学科
-    const validSubjects = ["语文", "数学", "英语", "科学", "历史", "地理", "政治"];
-    for (const subject of validSubjects) {
-      if (resultText.includes(subject)) return subject;
+    console.log(`[AI科目识别] 模式:${isVision?'视觉':'文本'} 结果:"${resultText.trim()}"`);
+
+    const aiResult = matchSubjectFromText(resultText);
+
+    // 视觉识别返回其它时，用文件名/内容做文本兜底
+    if (aiResult === '其它') {
+      const textFallback = matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
+      if (textFallback !== '其它') {
+        console.log(`[AI科目识别] 视觉识别为其它，文本兜底结果: ${textFallback}`);
+        return textFallback;
+      }
     }
-    return '其它';
+    return aiResult;
   } catch (error) {
     console.error("AI 识别失败:", error);
-    return '其它';
+    // 异常时也用文本兜底
+    return matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
   }
 }
 
