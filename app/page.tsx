@@ -414,7 +414,9 @@ export default function ChildDashboard() {
           border: 1px solid rgba(99,102,241,.3); border-radius: 13px; }
         .hw-audio-section { border-top: 1px solid rgba(255,255,255,.06); padding: 12px 16px 14px; }
         .audio-label { font-size: 13px; color: #74b9ff; font-weight: 800; margin-bottom: 8px; }
-        .audio-player { width: 100%; border-radius: 10px; display: block; height: 80px; }
+        .audio-wrap { width: 100%; height: 56px; display: flex; align-items: center; overflow: hidden; }
+        .audio-player { width: 71.4%; height: 40px; border-radius: 10px; display: block;
+          transform: scale(1.4); transform-origin: left center; }
 
         .ai-content-box { padding: 16px; background: rgba(0,0,0,.25);
           border-radius: 14px; font-size: 14px; line-height: 1.8; color: #cbd5e1;
@@ -651,7 +653,9 @@ export default function ChildDashboard() {
               {item.file_url && item.file_type === 'audio' && (
                 <div className="hw-audio-section">
                   <div className="audio-label">🎵 英语听力</div>
-                  <audio controls src={item.file_url} className="audio-player" />
+                  <div className="audio-wrap">
+                    <audio controls src={item.file_url} className="audio-player" />
+                  </div>
                 </div>
               )}
 
