@@ -414,7 +414,7 @@ export default function ChildDashboard() {
           border: 1px solid rgba(99,102,241,.3); border-radius: 13px; }
         .hw-audio-section { border-top: 1px solid rgba(255,255,255,.06); padding: 12px 16px 14px; }
         .audio-label { font-size: 13px; color: #74b9ff; font-weight: 800; margin-bottom: 8px; }
-        .audio-player { width: 100%; border-radius: 10px; display: block; }
+        .audio-player { width: 100%; border-radius: 10px; display: block; height: 54px; }
 
         .ai-content-box { padding: 16px; background: rgba(0,0,0,.25);
           border-radius: 14px; font-size: 14px; line-height: 1.8; color: #cbd5e1;
