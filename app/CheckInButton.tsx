@@ -83,7 +83,7 @@ export default function CheckInButton({ id, isCompleted }: { id: string, isCompl
             disabled={loading}
             className="flex-1 py-2.5 px-3 rounded-lg text-sm font-bold bg-green-500 text-white shadow-[0_4px_0_0_#16a34a] active:scale-95 transition-transform disabled:opacity-60"
           >
-            {loading ? '上传中...' : `✅ 完成打卡(${photos.length}张)`}
+            {loading ? '上传中...' : `✅ 完成打卡·v2(${photos.length}张)`}
           </button>
         )}
       </div>
