@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60   // 视觉模型慢，给到 Vercel 函数最大 60s
 
 function cleanMarkdown(text: string): string {
   return text
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
     ...imageUrls.map((url: string) => ({ type: 'image_url', image_url: { url } }))
   ]
 
+  const t0 = Date.now()
   const aiRes = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -49,7 +51,11 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({ model: 'qwen3.5-plus', messages: [{ role: 'user', content }] })
   })
+  const t1 = Date.now()
   const aiData = await aiRes.json()
+  const t2 = Date.now()
+  console.log(`[analyze] images=${imageUrls.length} ai_fetch=${t1-t0}ms parse=${t2-t1}ms total=${t2-t0}ms`)
+
   const raw = aiData.choices?.[0]?.message?.content || 'AI 分析失败，请稍后重试'
   const feedback = cleanMarkdown(raw)
 
