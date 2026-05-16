@@ -62,6 +62,7 @@ export default function ParentPage() {
         const { data:publicUrlData } = supabase.storage.from('attachments').getPublicUrl(storageName);
         fileUrl=publicUrlData.publicUrl;
         if (file.type.includes('pdf')||fileExt==='pdf') fileType='pdf';
+        else if (file.type.includes('audio')||['mp3','m4a','wav','ogg','aac'].includes(fileExt)) fileType='audio';
         else if (file.type.includes('image')||['jpg','jpeg','png'].includes(fileExt)) fileType='image';
         else fileType='word';
         if (!finalContent.trim()) {

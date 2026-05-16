@@ -412,6 +412,10 @@ export default function ChildDashboard() {
           padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
         .ai-expand   { background: rgba(99,102,241,.15); color: #a5b4fc;
           border: 1px solid rgba(99,102,241,.3); border-radius: 13px; }
+        .hw-audio-section { border-top: 1px solid rgba(255,255,255,.06); padding: 12px 16px 14px; }
+        .audio-label { font-size: 13px; color: #74b9ff; font-weight: 800; margin-bottom: 8px; }
+        .audio-player { width: 100%; border-radius: 10px; display: block; }
+
         .ai-content-box { padding: 16px; background: rgba(0,0,0,.25);
           border-radius: 14px; font-size: 14px; line-height: 1.8; color: #cbd5e1;
           white-space: pre-wrap; border: 1px solid rgba(255,255,255,.08); }
@@ -619,11 +623,12 @@ export default function ChildDashboard() {
                     {item.file_type === 'pdf'   && <span className="meta-chip">📄 PDF附件</span>}
                     {item.file_type === 'image' && <span className="meta-chip">🖼️ 图片附件</span>}
                     {item.file_type === 'word'  && <span className="meta-chip">📝 Word附件</span>}
+                    {item.file_type === 'audio' && <span className="meta-chip">🎵 听力附件</span>}
                   </div>
                 </div>
 
                 <div className="card-actions">
-                  {item.file_url && (
+                  {item.file_url && item.file_type !== 'audio' && (
                     <>
                       <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="act-btn btn-preview">
                         👀 预览
@@ -642,6 +647,13 @@ export default function ChildDashboard() {
                   )}
                 </div>
               </div>
+
+              {item.file_url && item.file_type === 'audio' && (
+                <div className="hw-audio-section">
+                  <div className="audio-label">🎵 英语听力</div>
+                  <audio controls src={item.file_url} className="audio-player" />
+                </div>
+              )}
 
               {item.is_completed && (() => {
                 const feedback = localFeedback[item.id] || item.ai_feedback
