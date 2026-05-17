@@ -69,23 +69,34 @@ ${hw.content}
   ]
 
   const t0 = Date.now()
-  let aiRes: Response
-  try {
-    aiRes = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.DASHSCOPE_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'qwen3.5-plus',
-        messages: [{ role: 'user', content }],
-        temperature: 0.1
+  // 重试 3 次（Vercel HK → 阿里云偶发网络抖动）
+  let aiRes: Response | null = null
+  let lastErr: any = null
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const tStart = Date.now()
+    try {
+      aiRes = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.DASHSCOPE_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'qwen3.5-plus',
+          messages: [{ role: 'user', content }],
+          temperature: 0.1
+        })
       })
-    })
-  } catch (e: any) {
-    console.error('[analyze] fetch failed:', e?.message, 'after', Date.now() - t0, 'ms')
-    return NextResponse.json({ error: 'AI 服务请求失败: ' + (e?.message || String(e)) }, { status: 502 })
+      console.log(`[analyze] attempt ${attempt} ok in ${Date.now() - tStart}ms`)
+      break
+    } catch (e: any) {
+      lastErr = e
+      console.error(`[analyze] attempt ${attempt} fetch failed after ${Date.now() - tStart}ms:`, e?.message)
+      if (attempt < 3) await new Promise(r => setTimeout(r, 500 * attempt))  // 0.5s, 1s 退避
+    }
+  }
+  if (!aiRes) {
+    return NextResponse.json({ error: 'AI 服务请求失败（已重试3次）: ' + (lastErr?.message || String(lastErr)) }, { status: 502 })
   }
 
   const t1 = Date.now()
