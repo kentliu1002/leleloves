@@ -20,7 +20,9 @@ const supabase = createClient(
 )
 
 export async function POST(request: Request) {
+ try {
   const { id } = await request.json()
+  console.log('[analyze] start id=', id)
 
   const { data: hw, error } = await supabase
     .from('homework').select('*').eq('id', id).single()
@@ -67,27 +69,54 @@ ${hw.content}
   ]
 
   const t0 = Date.now()
-  const aiRes = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.DASHSCOPE_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'qwen3.5-plus',
-      messages: [{ role: 'user', content }],
-      temperature: 0.1               // 降低随机性，减少瞎猜
+  let aiRes: Response
+  try {
+    aiRes = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.DASHSCOPE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'qwen3.5-plus',
+        messages: [{ role: 'user', content }],
+        temperature: 0.1
+      })
     })
-  })
+  } catch (e: any) {
+    console.error('[analyze] fetch failed:', e?.message, 'after', Date.now() - t0, 'ms')
+    return NextResponse.json({ error: 'AI 服务请求失败: ' + (e?.message || String(e)) }, { status: 502 })
+  }
+
   const t1 = Date.now()
-  const aiData = await aiRes.json()
+  const aiText = await aiRes.text()
   const t2 = Date.now()
-  console.log(`[analyze] images=${imageUrls.length} ai_fetch=${t1-t0}ms parse=${t2-t1}ms total=${t2-t0}ms`)
+  console.log(`[analyze] images=${imageUrls.length} status=${aiRes.status} ai_fetch=${t1-t0}ms read=${t2-t1}ms`)
 
-  const raw = aiData.choices?.[0]?.message?.content || 'AI 分析失败，请稍后重试'
+  if (!aiRes.ok) {
+    console.error('[analyze] AI HTTP error:', aiRes.status, aiText.substring(0, 500))
+    return NextResponse.json({ error: `AI 返回 HTTP ${aiRes.status}: ${aiText.substring(0, 200)}` }, { status: 502 })
+  }
+
+  let aiData: any
+  try { aiData = JSON.parse(aiText) }
+  catch (e: any) {
+    console.error('[analyze] JSON parse failed:', aiText.substring(0, 500))
+    return NextResponse.json({ error: 'AI 返回不是 JSON: ' + aiText.substring(0, 200) }, { status: 502 })
+  }
+
+  const raw = aiData.choices?.[0]?.message?.content
+  if (!raw) {
+    console.error('[analyze] AI response missing content:', JSON.stringify(aiData).substring(0, 500))
+    return NextResponse.json({ error: 'AI 响应无内容: ' + JSON.stringify(aiData).substring(0, 200) }, { status: 502 })
+  }
+
   const feedback = cleanMarkdown(raw)
-
   await supabase.from('homework').update({ ai_feedback: feedback }).eq('id', id)
 
   return NextResponse.json({ feedback })
+ } catch (e: any) {
+  console.error('[analyze] uncaught:', e?.stack || e)
+  return NextResponse.json({ error: '服务异常: ' + (e?.message || String(e)) }, { status: 500 })
+ }
 }
