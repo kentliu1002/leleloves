@@ -29,7 +29,7 @@ async function runAnalysis(hwId: string, content: string, proofImage: string | n
     try { imageUrls = JSON.parse(proofImage || '[]') }
     catch { if (proofImage) imageUrls = [proofImage] }
     if (imageUrls.length === 0) {
-      await supabase.from('homework').update({ ai_feedback: null }).eq('id', hwId)
+      await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', hwId)
       return
     }
 
@@ -86,7 +86,7 @@ ${content}
 
     if (!aiRes) {
       console.error('[analyze-bg] AI all 3 retries failed for', hwId)
-      await supabase.from('homework').update({ ai_feedback: null }).eq('id', hwId)
+      await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', hwId)
       return
     }
 
@@ -94,17 +94,35 @@ ${content}
     const raw = data.choices?.[0]?.message?.content
     if (!raw) {
       console.error('[analyze-bg] AI returned no content for', hwId)
-      await supabase.from('homework').update({ ai_feedback: null }).eq('id', hwId)
+      await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', hwId)
       return
     }
 
     const feedback = cleanMarkdown(raw)
-    await supabase.from('homework').update({ ai_feedback: feedback }).eq('id', hwId)
+    await supabase.from('homework').update({ ai_feedback: feedback, ai_started_at: null }).eq('id', hwId)
     console.log('[analyze-bg] done', hwId, 'len', feedback.length)
   } catch (e: any) {
     console.error('[analyze-bg] uncaught for', hwId, ':', e?.message)
-    await supabase.from('homework').update({ ai_feedback: null }).eq('id', hwId).catch(() => {})
+    await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', hwId).catch(() => {})
   }
+}
+
+const STALE_MINUTES = 5  // PROCESSING 超过这个分钟数视为僵死
+
+// 检查并清理僵死的 PROCESSING：返回最新状态
+async function unstickIfStale(id: string, ai_feedback: string | null, ai_started_at: string | null) {
+  if (ai_feedback !== PROCESSING) return ai_feedback
+  if (!ai_started_at) {
+    // 异常：处于 PROCESSING 但没有起始时间，直接清掉
+    await supabase.from('homework').update({ ai_feedback: null }).eq('id', id)
+    return null
+  }
+  const ageMin = (Date.now() - new Date(ai_started_at).getTime()) / 60000
+  if (ageMin > STALE_MINUTES) {
+    await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', id)
+    return null
+  }
+  return PROCESSING
 }
 
 // POST: 触发分析（异步），立即返回
@@ -112,22 +130,26 @@ export async function POST(request: Request) {
   try {
     const { id } = await request.json()
     const { data: hw, error } = await supabase
-      .from('homework').select('id, content, proof_image, ai_feedback').eq('id', id).single()
+      .from('homework').select('id, content, proof_image, ai_feedback, ai_started_at').eq('id', id).single()
     if (error || !hw) return NextResponse.json({ error: '作业不存在' }, { status: 404 })
 
+    const currentFb = await unstickIfStale(id, hw.ai_feedback, hw.ai_started_at)
+
     // 已有结果直接返回
-    if (hw.ai_feedback && hw.ai_feedback !== PROCESSING) {
-      return NextResponse.json({ feedback: hw.ai_feedback })
+    if (currentFb && currentFb !== PROCESSING) {
+      return NextResponse.json({ feedback: currentFb })
     }
-    // 正在分析中
-    if (hw.ai_feedback === PROCESSING) {
+    // 仍在合理时间内的分析中
+    if (currentFb === PROCESSING) {
       return NextResponse.json({ pending: true })
     }
 
-    // 标记为分析中
-    await supabase.from('homework').update({ ai_feedback: PROCESSING }).eq('id', id)
+    // 标记为分析中 + 记录起始时间
+    await supabase.from('homework')
+      .update({ ai_feedback: PROCESSING, ai_started_at: new Date().toISOString() })
+      .eq('id', id)
 
-    // 触发后台任务（不 await，函数立即返回 pending）
+    // 触发后台任务（不 await）
     runAnalysis(id, hw.content, hw.proof_image)
 
     return NextResponse.json({ pending: true })
@@ -143,12 +165,14 @@ export async function GET(request: Request) {
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: '缺 id' }, { status: 400 })
     const { data: hw, error } = await supabase
-      .from('homework').select('ai_feedback').eq('id', id).single()
+      .from('homework').select('ai_feedback, ai_started_at').eq('id', id).single()
     if (error || !hw) return NextResponse.json({ error: '作业不存在' }, { status: 404 })
 
-    if (hw.ai_feedback === PROCESSING) return NextResponse.json({ pending: true })
-    if (hw.ai_feedback) return NextResponse.json({ feedback: hw.ai_feedback })
-    return NextResponse.json({ pending: false })  // 未触发或失败
+    const currentFb = await unstickIfStale(id, hw.ai_feedback, hw.ai_started_at)
+
+    if (currentFb === PROCESSING) return NextResponse.json({ pending: true })
+    if (currentFb) return NextResponse.json({ feedback: currentFb })
+    return NextResponse.json({ pending: false })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
