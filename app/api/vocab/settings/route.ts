@@ -17,14 +17,15 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { enabled_topics } = await request.json()
-  if (!Array.isArray(enabled_topics)) {
-    return NextResponse.json({ error: 'enabled_topics 必须是数组' }, { status: 400 })
+  const body = await request.json()
+  const patch: any = { updated_at: new Date().toISOString() }
+  if (Array.isArray(body.enabled_topics)) patch.enabled_topics = body.enabled_topics
+  if (Array.isArray(body.enabled_modules)) patch.enabled_modules = body.enabled_modules
+  if (!('enabled_topics' in patch) && !('enabled_modules' in patch)) {
+    return NextResponse.json({ error: '需要传 enabled_topics 或 enabled_modules' }, { status: 400 })
   }
   const { error } = await supabase
-    .from('vocab_settings')
-    .update({ enabled_topics, updated_at: new Date().toISOString() })
-    .eq('id', 1)
+    .from('vocab_settings').update(patch).eq('id', 1)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true, enabled_topics })
+  return NextResponse.json({ success: true, ...patch })
 }

@@ -48,25 +48,62 @@ export async function GET() {
 
     // 2. 创建新 session
     const { data: settings } = await supabase
-      .from('vocab_settings').select('enabled_topics').eq('id', 1).single()
+      .from('vocab_settings').select('enabled_topics, enabled_modules').eq('id', 1).single()
     const enabledTopics: string[] = settings?.enabled_topics || []
+    const enabledModules: string[] = settings?.enabled_modules || []
 
-    if (enabledTopics.length === 0) {
+    if (enabledTopics.length === 0 && enabledModules.length === 0) {
       return NextResponse.json({
         date: today, newWords: [], reviewWords: [], completedToday: false,
-        warning: '尚未设置考查主题，请家长在小程序"单词"页选择主题'
+        warning: '尚未设置考查范围，请家长在小程序"单词"页选择主题或教材 Module'
       })
     }
 
-    // 选 5 个新词：在 enabled topics 中且从未在 vocab_attempts 出现
+    // 合并候选 word id：topic 范围 ∪ module 范围
+    const candidateIdSet = new Set<number>()
+
+    if (enabledTopics.length > 0) {
+      const { data: topicWords } = await supabase
+        .from('vocabulary').select('id').in('topic', enabledTopics)
+      ;(topicWords || []).forEach(w => candidateIdSet.add(w.id))
+    }
+
+    if (enabledModules.length > 0) {
+      // enabled_modules 格式如 '3上.M1' → 拆 book + module_no
+      const moduleConditions = enabledModules.map(k => {
+        const m = k.match(/^(.+)\.M(\d+)$/)
+        return m ? { book: m[1], module_no: parseInt(m[2]) } : null
+      }).filter(Boolean) as { book: string, module_no: number }[]
+
+      if (moduleConditions.length > 0) {
+        const books = [...new Set(moduleConditions.map(c => c.book))]
+        const { data: modRows } = await supabase
+          .from('textbook_modules').select('id, book, module_no').in('book', books)
+        const moduleIds = (modRows || [])
+          .filter(m => moduleConditions.some(c => c.book === m.book && c.module_no === m.module_no))
+          .map(m => m.id)
+        if (moduleIds.length > 0) {
+          const { data: links } = await supabase
+            .from('vocab_module_words').select('word_id').in('module_id', moduleIds)
+          ;(links || []).forEach(l => candidateIdSet.add(l.word_id))
+        }
+      }
+    }
+
+    const candidateIds = [...candidateIdSet]
+
+    // 选 5 个新词：候选中且从未在 vocab_attempts 出现
     const { data: attemptedIds } = await supabase
       .from('vocab_attempts').select('word_id')
     const seenIds = new Set((attemptedIds || []).map(r => r.word_id))
+    const unseenIds = candidateIds.filter(id => !seenIds.has(id))
 
-    const { data: candidateWords } = await supabase
-      .from('vocabulary').select('*').in('topic', enabledTopics)
-    const unseen = (candidateWords || []).filter(w => !seenIds.has(w.id))
-    const newWords = shuffle(unseen).slice(0, 5)
+    let candidateWords: any[] = []
+    if (unseenIds.length > 0) {
+      const { data } = await supabase.from('vocabulary').select('*').in('id', unseenIds)
+      candidateWords = data || []
+    }
+    const newWords = shuffle(candidateWords).slice(0, 5)
 
     // 选 5 个复习词：有过 correct=true 的
     const { data: correctAttempts } = await supabase
