@@ -13,7 +13,7 @@ export async function GET() {
   try {
     // 拉模块列表 + 每个 module 的词数
     const { data: modules, error: modErr } = await supabase
-      .from('textbook_modules').select('id, book, module_no, sort_order')
+      .from('textbook_modules').select('id, book, module_no, sort_order, unit_label')
       .order('sort_order', { ascending: true })
     if (modErr) throw modErr
 
@@ -25,13 +25,15 @@ export async function GET() {
     })
 
     // 按 book 分组
-    const grouped: Record<string, { id: number, module_no: number, key: string, count: number }[]> = {}
+    const grouped: Record<string, { id: number, module_no: number, label: string, key: string, count: number }[]> = {}
     ;(modules || []).forEach(m => {
       if (!grouped[m.book]) grouped[m.book] = []
+      const label = m.unit_label || `M${m.module_no}`
       grouped[m.book].push({
         id: m.id,
         module_no: m.module_no,
-        key: `${m.book}.M${m.module_no}`,
+        label,
+        key: `${m.book}.${label}`,
         count: countByMod[m.id] || 0
       })
     })

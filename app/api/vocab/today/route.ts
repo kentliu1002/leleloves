@@ -69,18 +69,22 @@ export async function GET() {
     }
 
     if (enabledModules.length > 0) {
-      // enabled_modules 格式如 '3上.M1' → 拆 book + module_no
+      // enabled_modules 格式可能是 '3上.M1' (老版) 或 '3下.Unit 1' (新版)
+      // 拆 book + label：以最后一个 '.' 为分隔
       const moduleConditions = enabledModules.map(k => {
-        const m = k.match(/^(.+)\.M(\d+)$/)
-        return m ? { book: m[1], module_no: parseInt(m[2]) } : null
-      }).filter(Boolean) as { book: string, module_no: number }[]
+        const idx = k.indexOf('.')
+        if (idx < 0) return null
+        return { book: k.substring(0, idx), label: k.substring(idx + 1) }
+      }).filter(Boolean) as { book: string, label: string }[]
 
       if (moduleConditions.length > 0) {
         const books = [...new Set(moduleConditions.map(c => c.book))]
         const { data: modRows } = await supabase
-          .from('textbook_modules').select('id, book, module_no').in('book', books)
+          .from('textbook_modules').select('id, book, module_no, unit_label').in('book', books)
         const moduleIds = (modRows || [])
-          .filter(m => moduleConditions.some(c => c.book === m.book && c.module_no === m.module_no))
+          .filter(m => moduleConditions.some(c =>
+            c.book === m.book && (c.label === (m.unit_label || `M${m.module_no}`))
+          ))
           .map(m => m.id)
         if (moduleIds.length > 0) {
           const { data: links } = await supabase
