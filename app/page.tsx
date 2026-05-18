@@ -134,16 +134,42 @@ export default function ChildDashboard() {
   const handleAnalyze = async (id: string) => {
     setAnalyzing(prev => new Set(prev).add(id))
     try {
+      // 1. 触发分析（异步）
       const res = await fetch('/api/homework/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       })
       const data = await res.json()
+      // 已有缓存结果直接展示
       if (data.feedback) {
         setLocalFeedback(prev => ({ ...prev, [id]: data.feedback }))
         setExpandedFeedback(prev => new Set(prev).add(id))
+        return
       }
+      // pending: 开始轮询
+      if (data.pending) {
+        for (let i = 0; i < 60; i++) {  // 最多 60×5s = 5 分钟
+          await new Promise(r => setTimeout(r, 5000))
+          try {
+            const statusRes = await fetch(`/api/homework/analyze?id=${id}`)
+            const status = await statusRes.json()
+            if (status.feedback) {
+              setLocalFeedback(prev => ({ ...prev, [id]: status.feedback }))
+              setExpandedFeedback(prev => new Set(prev).add(id))
+              return
+            }
+            if (status.pending === false && !status.feedback) {
+              // 分析失败（已被重置为 null）
+              alert('AI 分析失败，请稍后重试')
+              return
+            }
+          } catch {}
+        }
+        alert('AI 分析超时（5 分钟仍未完成），请稍后刷新页面查看')
+      }
+    } catch (e: any) {
+      alert('AI 分析触发失败：' + e.message)
     } finally {
       setAnalyzing(prev => { const s = new Set(prev); s.delete(id); return s })
     }
