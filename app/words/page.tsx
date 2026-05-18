@@ -77,6 +77,17 @@ export default function WordsPage() {
     }
   }
 
+  // 句子用浏览器内置 TTS（有道只支持单词，整句会 500）
+  const playSentence = (sentence: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(sentence)
+    u.lang = 'en-US'
+    u.rate = 0.85
+    u.pitch = 1.0
+    window.speechSynthesis.speak(u)
+  }
+
   const submitAttempt = async (correct: boolean) => {
     if (!currentWord) return
     try {
@@ -256,7 +267,7 @@ export default function WordsPage() {
               ) : (
                 <>
                   <div className="example-en">{ex.en}</div>
-                  <button className="audio-btn small" onClick={() => playAudio(ex.en)}>🔊 朗读例句</button>
+                  <button className="audio-btn small" onClick={() => playSentence(ex.en)}>🔊 朗读例句</button>
                   <div className="example-zh">{ex.zh}</div>
                 </>
               )}
