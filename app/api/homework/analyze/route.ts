@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60   // 视觉模型慢，给到 Vercel 函数最大 60s
+export const maxDuration = 300  // 多图视觉分析可能 > 60s，给到平台上限
 
 function cleanMarkdown(text: string): string {
   return text
