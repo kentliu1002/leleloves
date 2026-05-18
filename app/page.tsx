@@ -43,6 +43,7 @@ export default function ChildDashboard() {
   const [analyzing, setAnalyzing] = useState<Set<string>>(new Set())
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
   const [localFeedback, setLocalFeedback] = useState<Record<string, string>>({})
+  const [vocabStats, setVocabStats] = useState<{ masteredCount: number, todayStatus: { completed: boolean, newCount: number, reviewCount: number } } | null>(null)
   
   // 📅 生成过去7天的日期数组
   const last7Days = Array.from({length: 7}, (_, i) => {
@@ -61,6 +62,13 @@ export default function ChildDashboard() {
     } catch {}
   }
 
+  const fetchVocabStats = async () => {
+    try {
+      const res = await fetch('/api/vocab/stats', { cache: 'no-store' })
+      if (res.ok) setVocabStats(await res.json())
+    } catch {}
+  }
+
   const fetchHW = async () => {
     setIsRefreshing(true)
     const data = await getHomework()
@@ -71,7 +79,8 @@ export default function ChildDashboard() {
   useEffect(() => {
     fetchHW()
     fetchPoints()
-    const timer = setInterval(() => { fetchHW(); fetchPoints() }, 300000) // 每5分钟自动刷新
+    fetchVocabStats()
+    const timer = setInterval(() => { fetchHW(); fetchPoints(); fetchVocabStats() }, 300000) // 每5分钟自动刷新
     return () => clearInterval(timer)
   }, [])
 
@@ -476,6 +485,31 @@ export default function ChildDashboard() {
           text-align: center; padding: 80px 40px; color: #4a5a7a; }
         .empty-state .ei { font-size: 72px; margin-bottom: 16px; }
         .empty-state p   { font-size: 20px; font-weight: 800; }
+
+        /* 附加任务卡 */
+        .vocab-card {
+          display: flex; align-items: center; justify-content: space-between;
+          background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a8a 100%);
+          border: 1px solid rgba(167,139,250,.3);
+          border-radius: 16px; padding: 16px 18px;
+          margin: 0 0 16px; text-decoration: none; color: #fff;
+          box-shadow: 0 4px 16px rgba(99,102,241,.2);
+        }
+        .vocab-left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+        .vocab-icon {
+          font-size: 32px; flex-shrink: 0;
+          width: 48px; height: 48px;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(167,139,250,.15);
+          border-radius: 12px;
+        }
+        .vocab-title { font-size: 15px; font-weight: 900; color: #fff; }
+        .vocab-sub { font-size: 12px; color: #c4b5fd; margin-top: 3px; font-weight: 600; }
+        .vocab-right { text-align: right; flex-shrink: 0; }
+        .vocab-mastered {
+          font-size: 24px; font-weight: 900; color: #a78bfa; line-height: 1;
+        }
+        .vocab-mastered-label { font-size: 11px; color: #c4b5fd; margin-top: 4px; font-weight: 600; }
       `}</style>
 
       <div className="lele-wrap">
@@ -530,6 +564,27 @@ export default function ChildDashboard() {
             )}
           </div>
         </div>
+
+        {/* 附加任务：每日英语单词 */}
+        <a href="/words" className="vocab-card">
+          <div className="vocab-left">
+            <div className="vocab-icon">📚</div>
+            <div>
+              <div className="vocab-title">今日英语附加任务</div>
+              <div className="vocab-sub">
+                {vocabStats?.todayStatus.completed
+                  ? '✅ 今日已完成 +5 积分'
+                  : vocabStats
+                    ? `${vocabStats.todayStatus.newCount} 新词 · ${vocabStats.todayStatus.reviewCount} 复习`
+                    : '加载中…'}
+              </div>
+            </div>
+          </div>
+          <div className="vocab-right">
+            <div className="vocab-mastered">{vocabStats?.masteredCount ?? '—'}</div>
+            <div className="vocab-mastered-label">已掌握</div>
+          </div>
+        </a>
 
         {/* 指挥中心 */}
         <div className="hq">
