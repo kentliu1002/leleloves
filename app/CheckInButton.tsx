@@ -1,7 +1,8 @@
 'use client'
 import { useRef, useState } from 'react'
 
-// 客户端压缩：限长边 1600px、JPEG quality 0.82，原图>1MB 才压缩
+// 客户端压缩：限长边 2048px、JPEG quality 0.88，原图>1MB 才压缩
+// 较高分辨率有利于 AI 识别手写字
 async function compressImage(file: File): Promise<File> {
   if (file.size <= 1024 * 1024) return file   // <=1MB 直接放行
   const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -16,7 +17,7 @@ async function compressImage(file: File): Promise<File> {
     i.onerror = reject
     i.src = dataUrl
   })
-  const MAX = 1600
+  const MAX = 2048
   let { width, height } = img
   if (width > MAX || height > MAX) {
     const ratio = Math.min(MAX / width, MAX / height)
@@ -27,7 +28,7 @@ async function compressImage(file: File): Promise<File> {
   canvas.width = width; canvas.height = height
   canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
   const blob = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas.toBlob 失败')), 'image/jpeg', 0.82)
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas.toBlob 失败')), 'image/jpeg', 0.88)
   )
   // 失败保险：如果压完反而更大（罕见），回退原图
   if (blob.size >= file.size) return file
