@@ -29,6 +29,8 @@ export default function WordsPage() {
   const [wrong, setWrong] = useState(false)
   const [attemptNo, setAttemptNo] = useState(1)
   const audioRef = useRef<HTMLAudioElement>(null)
+  // 例句缓存: { [wordId]: { en, zh } | 'loading' | 'error' }
+  const [examples, setExamples] = useState<Record<number, { en: string, zh: string } | 'loading' | 'error'>>({})
 
   // 拉今日 session
   useEffect(() => {
@@ -45,6 +47,28 @@ export default function WordsPage() {
 
   const currentList = phase === 'reviewQuiz' ? reviewWords : phase === 'newQuiz' ? newWords : []
   const currentWord = currentList[idx]
+
+  // newStudy 阶段：预拉当前 + 下一个词的例句
+  useEffect(() => {
+    if (phase !== 'newStudy') return
+    const idsToFetch = [studyIdx, studyIdx + 1]
+      .map(i => newWords[i]?.id)
+      .filter(Boolean) as number[]
+    idsToFetch.forEach(id => {
+      if (examples[id]) return
+      setExamples(prev => ({ ...prev, [id]: 'loading' }))
+      fetch(`/api/vocab/example?id=${id}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.en && d.zh) {
+            setExamples(prev => ({ ...prev, [id]: { en: d.en, zh: d.zh } }))
+          } else {
+            setExamples(prev => ({ ...prev, [id]: 'error' }))
+          }
+        })
+        .catch(() => setExamples(prev => ({ ...prev, [id]: 'error' })))
+    })
+  }, [phase, studyIdx, newWords])
 
   const playAudio = (word: string) => {
     if (audioRef.current) {
@@ -209,21 +233,41 @@ export default function WordsPage() {
         </div>
       )}
 
-      {phase === 'newStudy' && newWords[studyIdx] && (
-        <div className="study-card">
-          <div className="study-phase-label">
-            ✨ 学习新单词
-            <span className="progress-label">{studyIdx + 1} / {newWords.length}</span>
+      {phase === 'newStudy' && newWords[studyIdx] && (() => {
+        const w = newWords[studyIdx]
+        const ex = examples[w.id]
+        return (
+          <div className="study-card">
+            <div className="study-phase-label">
+              ✨ 学习新单词
+              <span className="progress-label">{studyIdx + 1} / {newWords.length}</span>
+            </div>
+            <div className="big-word">{w.word}</div>
+            <div className="big-ipa">{w.ipa}</div>
+            <button className="audio-btn" onClick={() => playAudio(w.word)}>🔊 播放发音</button>
+            <div className="big-meaning">{w.meaning_zh}</div>
+
+            <div className="example-section">
+              <div className="example-label">📖 例句</div>
+              {!ex || ex === 'loading' ? (
+                <div className="example-loading">正在生成例句…</div>
+              ) : ex === 'error' ? (
+                <div className="example-error">例句生成失败</div>
+              ) : (
+                <>
+                  <div className="example-en">{ex.en}</div>
+                  <button className="audio-btn small" onClick={() => playAudio(ex.en)}>🔊 朗读例句</button>
+                  <div className="example-zh">{ex.zh}</div>
+                </>
+              )}
+            </div>
+
+            <button className="primary-btn" onClick={onStudyNext}>
+              {studyIdx + 1 < newWords.length ? '下一个 →' : '开始测试 →'}
+            </button>
           </div>
-          <div className="big-word">{newWords[studyIdx].word}</div>
-          <div className="big-ipa">{newWords[studyIdx].ipa}</div>
-          <button className="audio-btn" onClick={() => playAudio(newWords[studyIdx].word)}>🔊 播放发音</button>
-          <div className="big-meaning">{newWords[studyIdx].meaning_zh}</div>
-          <button className="primary-btn" onClick={onStudyNext}>
-            {studyIdx + 1 < newWords.length ? '下一个 →' : '开始测试 →'}
-          </button>
-        </div>
-      )}
+        )
+      })()}
 
       <style jsx global>{`
         body { background: #0a0e27; }
@@ -351,6 +395,34 @@ export default function WordsPage() {
           background: rgba(252,211,77,.15);
           padding: 4px 12px; border-radius: 50px;
           border: 1px solid rgba(252,211,77,.25);
+        }
+
+        /* 例句区 */
+        .example-section {
+          width: 100%;
+          background: rgba(0,0,0,.25);
+          border: 1px solid rgba(116,185,255,.15);
+          border-radius: 12px;
+          padding: 14px;
+          display: flex; flex-direction: column; align-items: center; gap: 10px;
+          margin-top: 4px;
+        }
+        .example-label {
+          font-size: 12px; color: #74b9ff; font-weight: 800;
+          letter-spacing: 1px; align-self: flex-start;
+        }
+        .example-loading { color: #6b7ba8; font-size: 14px; padding: 8px 0; }
+        .example-error { color: #fca5a5; font-size: 13px; padding: 8px 0; }
+        .example-en {
+          font-size: 18px; color: #fff; font-weight: 600;
+          text-align: center; line-height: 1.5;
+        }
+        .example-zh {
+          font-size: 14px; color: #a8b8d8;
+          text-align: center; line-height: 1.5;
+        }
+        .audio-btn.small {
+          padding: 6px 16px; font-size: 13px;
         }
       `}</style>
     </main>
