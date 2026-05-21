@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300   // Vercel 现所有计划支持 300s；单次视觉分析约 40-60s
 export const dynamic = 'force-dynamic'
 
 const PROCESSING = '__PROCESSING__'
@@ -22,21 +22,17 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// 重型分析工作（不被请求超时限制——通过 Vercel 后台任务延续）
-async function runAnalysis(hwId: string, content: string, proofImage: string | null) {
-  try {
-    let imageUrls: string[] = []
-    try { imageUrls = JSON.parse(proofImage || '[]') }
-    catch { if (proofImage) imageUrls = [proofImage] }
-    if (imageUrls.length === 0) {
-      await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', hwId)
-      return
-    }
+// 同步执行分析，返回 feedback 文本或 null（失败）
+async function runAnalysis(content: string, proofImage: string | null): Promise<string | null> {
+  let imageUrls: string[] = []
+  try { imageUrls = JSON.parse(proofImage || '[]') }
+  catch { if (proofImage) imageUrls = [proofImage] }
+  if (imageUrls.length === 0) return null
 
-    const aiContent: any[] = [
-      {
-        type: 'text',
-        text: `你是一位认真严谨的小学老师助手，正在批改一份学生的作业。请按"先转写、再判断"两段式严格执行。
+  const aiContent: any[] = [
+    {
+      type: 'text',
+      text: `你是一位认真严谨的小学老师助手，正在批改一份学生的作业。请按"先转写、再判断"两段式严格执行。
 
 【老师布置的作业内容】
 ${content}
@@ -79,121 +75,81 @@ E. 如果照片角度倾斜、被遮挡，明确说明。
 如全部正确，明确写"所有题目都做对了"。
 
 宁可说"不确定/请家长核对"也不要瞎判对错。识别错误造成的误判比说不确定更严重。`
-      },
-      ...imageUrls.map((url: string) => ({ type: 'image_url', image_url: { url } }))
-    ]
+    },
+    ...imageUrls.map((url: string) => ({ type: 'image_url', image_url: { url } }))
+  ]
 
-    // 调 AI（3 次重试）
-    let aiRes: Response | null = null
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        aiRes = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.DASHSCOPE_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'qwen3.5-plus',
-            messages: [{ role: 'user', content: aiContent }],
-            temperature: 0.1
-          })
+  // 调 AI（3 次重试，缓解 HK→阿里云网络抖动）
+  let aiRes: Response | null = null
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      aiRes = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.DASHSCOPE_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'qwen3.5-plus',
+          messages: [{ role: 'user', content: aiContent }],
+          temperature: 0.1
         })
-        if (aiRes.ok) break
-        aiRes = null
-      } catch (e) {
-        if (attempt < 3) await new Promise(r => setTimeout(r, 500 * attempt))
-      }
+      })
+      if (aiRes.ok) break
+      console.error('[analyze] AI HTTP', aiRes.status, 'attempt', attempt)
+      aiRes = null
+    } catch (e: any) {
+      console.error('[analyze] fetch failed attempt', attempt, e?.message)
+      if (attempt < 3) await new Promise(r => setTimeout(r, 500 * attempt))
     }
-
-    if (!aiRes) {
-      console.error('[analyze-bg] AI all 3 retries failed for', hwId)
-      await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', hwId)
-      return
-    }
-
-    const data = await aiRes.json()
-    const raw = data.choices?.[0]?.message?.content
-    if (!raw) {
-      console.error('[analyze-bg] AI returned no content for', hwId)
-      await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', hwId)
-      return
-    }
-
-    const feedback = cleanMarkdown(raw)
-    await supabase.from('homework').update({ ai_feedback: feedback, ai_started_at: null }).eq('id', hwId)
-    console.log('[analyze-bg] done', hwId, 'len', feedback.length)
-  } catch (e: any) {
-    console.error('[analyze-bg] uncaught for', hwId, ':', e?.message)
-    await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', hwId).catch(() => {})
   }
+  if (!aiRes) return null
+
+  const data = await aiRes.json()
+  const raw = data.choices?.[0]?.message?.content
+  if (!raw) return null
+  return cleanMarkdown(raw)
 }
 
-const STALE_MINUTES = 5  // PROCESSING 超过这个分钟数视为僵死
-
-// 检查并清理僵死的 PROCESSING：返回最新状态
-async function unstickIfStale(id: string, ai_feedback: string | null, ai_started_at: string | null) {
-  if (ai_feedback !== PROCESSING) return ai_feedback
-  if (!ai_started_at) {
-    // 异常：处于 PROCESSING 但没有起始时间，直接清掉
-    await supabase.from('homework').update({ ai_feedback: null }).eq('id', id)
-    return null
-  }
-  const ageMin = (Date.now() - new Date(ai_started_at).getTime()) / 60000
-  if (ageMin > STALE_MINUTES) {
-    await supabase.from('homework').update({ ai_feedback: null, ai_started_at: null }).eq('id', id)
-    return null
-  }
-  return PROCESSING
-}
-
-// POST: 触发分析（异步），立即返回
+// POST: 同步分析，直接返回 feedback
 export async function POST(request: Request) {
   try {
     const { id } = await request.json()
     const { data: hw, error } = await supabase
-      .from('homework').select('id, content, proof_image, ai_feedback, ai_started_at').eq('id', id).single()
+      .from('homework').select('id, content, proof_image, ai_feedback').eq('id', id).single()
     if (error || !hw) return NextResponse.json({ error: '作业不存在' }, { status: 404 })
 
-    const currentFb = await unstickIfStale(id, hw.ai_feedback, hw.ai_started_at)
-
-    // 已有结果直接返回
-    if (currentFb && currentFb !== PROCESSING) {
-      return NextResponse.json({ feedback: currentFb })
-    }
-    // 仍在合理时间内的分析中
-    if (currentFb === PROCESSING) {
-      return NextResponse.json({ pending: true })
+    // 已有有效结果直接返回（忽略 PROCESSING 残留）
+    if (hw.ai_feedback && hw.ai_feedback !== PROCESSING) {
+      return NextResponse.json({ feedback: hw.ai_feedback })
     }
 
-    // 标记为分析中 + 记录起始时间
-    await supabase.from('homework')
-      .update({ ai_feedback: PROCESSING, ai_started_at: new Date().toISOString() })
-      .eq('id', id)
+    const feedback = await runAnalysis(hw.content, hw.proof_image)
+    if (!feedback) {
+      // 清除任何 PROCESSING 残留，允许重试
+      await supabase.from('homework').update({ ai_feedback: null }).eq('id', id)
+      return NextResponse.json({ error: 'AI 分析失败，请稍后重试' }, { status: 502 })
+    }
 
-    // 触发后台任务（不 await）
-    runAnalysis(id, hw.content, hw.proof_image)
-
-    return NextResponse.json({ pending: true })
+    await supabase.from('homework').update({ ai_feedback: feedback }).eq('id', id)
+    return NextResponse.json({ feedback })
   } catch (e: any) {
     console.error('[analyze] POST error:', e?.message)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-// GET: 查询状态（前端轮询用）
+// GET: 兼容网页端轮询，直接返回当前状态
 export async function GET(request: Request) {
   try {
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: '缺 id' }, { status: 400 })
     const { data: hw, error } = await supabase
-      .from('homework').select('ai_feedback, ai_started_at').eq('id', id).single()
+      .from('homework').select('ai_feedback').eq('id', id).single()
     if (error || !hw) return NextResponse.json({ error: '作业不存在' }, { status: 404 })
-
-    const currentFb = await unstickIfStale(id, hw.ai_feedback, hw.ai_started_at)
-
-    if (currentFb === PROCESSING) return NextResponse.json({ pending: true })
-    if (currentFb) return NextResponse.json({ feedback: currentFb })
+    if (hw.ai_feedback && hw.ai_feedback !== PROCESSING) {
+      return NextResponse.json({ feedback: hw.ai_feedback })
+    }
     return NextResponse.json({ pending: false })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
