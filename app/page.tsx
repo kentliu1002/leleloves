@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { getHomework } from '../lib/actions'
 import CheckInButton from './CheckInButton'
 
@@ -44,6 +44,10 @@ export default function ChildDashboard() {
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
   const [localFeedback, setLocalFeedback] = useState<Record<string, string>>({})
   const [vocabStats, setVocabStats] = useState<{ masteredCount: number, todayStatus: { completed: boolean, newCount: number, reviewCount: number } } | null>(null)
+  // 打印预览状态
+  const [printUrl, setPrintUrl] = useState<string | null>(null)
+  const [printReady, setPrintReady] = useState(false)
+  const printIframeRef = useRef<HTMLIFrameElement>(null)
   
   // 📅 生成过去7天的日期数组
   const last7Days = Array.from({length: 7}, (_, i) => {
@@ -85,57 +89,26 @@ export default function ChildDashboard() {
   }, [])
 
   // 🚀 全自动打印函数（纯净 DOM 版，防 Vercel 报错）
+  // 打开打印预览（第 1 步：异步加载图片到 iframe）
   const handlePrint = (e: React.MouseEvent, url: string) => {
     e.preventDefault();
-    // 一键打印：在主页面里塞隐藏 iframe，从主窗口上下文调 print()
-    // iOS AirPrint 的"信任打印机"等系统对话框在主窗口能正常显示和点击
-    // （之前用 window.open 弹出子窗口，系统对话框 UI 受限）
-    const existing = document.getElementById('__print_iframe__');
-    if (existing) existing.remove();
+    setPrintReady(false);
+    setPrintUrl(url);
+  };
 
-    const iframe = document.createElement('iframe');
-    iframe.id = '__print_iframe__';
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;border:0;opacity:0;';
-    document.body.appendChild(iframe);
-
-    const isPdf = url.toLowerCase().includes('.pdf');
-    const triggerPrint = () => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch (err: any) {
-        // 跨域 PDF 可能拒绝 print；兜底为新标签打开
-        window.open(url, '_blank', 'noopener,noreferrer');
-        alert('请在新打开的页面用 ↗ 分享 → 打印');
-      }
-    };
-
-    if (isPdf) {
-      // PDF 直接用 src（跨域加载 OK，能否 print() 看浏览器；失败有兜底）
-      iframe.src = url;
-      iframe.onload = () => setTimeout(triggerPrint, 1200);
-    } else {
-      // 图片：用 srcdoc 写一个本地 HTML 包裹（同源于父页面，print() 可正常调用）
-      iframe.srcdoc =
-        '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-        '<style>@page{margin:0}body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh}' +
-        'img{max-width:100%;max-height:100vh;object-fit:contain}</style>' +
-        '</head><body><img id="i" src="' + url + '" crossorigin="anonymous" /></body></html>';
-      iframe.onload = () => {
-        const doc = iframe.contentDocument;
-        const img = doc?.getElementById('i') as HTMLImageElement | null;
-        if (!img) { triggerPrint(); return; }
-        if (img.complete && img.naturalWidth > 0) {
-          setTimeout(triggerPrint, 100);
-        } else {
-          img.onload = () => setTimeout(triggerPrint, 100);
-          img.onerror = () => {
-            // 图片加载失败兜底
-            window.open(url, '_blank', 'noopener,noreferrer');
-          };
-        }
-      };
+  // 用户在预览里点"打印"按钮触发（第 2 步：同步调用 print()，符合 iOS 用户手势要求）
+  const confirmPrint = () => {
+    try {
+      printIframeRef.current?.contentWindow?.focus();
+      printIframeRef.current?.contentWindow?.print();
+    } catch (err) {
+      if (printUrl) window.open(printUrl, '_blank', 'noopener,noreferrer');
     }
+  };
+
+  const closePrintModal = () => {
+    setPrintUrl(null);
+    setPrintReady(false);
   };
 
   const handleAnalyze = async (id: string) => {
@@ -797,6 +770,95 @@ export default function ChildDashboard() {
         })}
 
       </div>
+
+      {/* 打印预览弹窗：iframe 先加载，用户点"打印"按钮同步触发 print()，符合 iOS 手势要求 */}
+      {printUrl && (
+        <div className="print-modal" onClick={closePrintModal}>
+          <div className="print-modal-inner" onClick={(e) => e.stopPropagation()}>
+            <div className="print-modal-bar">
+              <button className="print-cancel" onClick={closePrintModal}>✕ 取消</button>
+              <div className="print-modal-title">{printReady ? '✅ 已就绪，点击打印' : '正在准备…'}</div>
+              <button
+                className="print-confirm"
+                onClick={confirmPrint}
+                disabled={!printReady}
+              >
+                🖨️ 打印
+              </button>
+            </div>
+            <iframe
+              ref={printIframeRef}
+              className="print-iframe"
+              srcDoc={
+                printUrl.toLowerCase().includes('.pdf')
+                  ? undefined
+                  : '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+                    '<style>@page{margin:0}html,body{margin:0;padding:0;background:#fff}' +
+                    'body{display:flex;justify-content:center;align-items:center;min-height:100vh}' +
+                    'img{max-width:100%;max-height:100vh;object-fit:contain;display:block}</style>' +
+                    '</head><body><img id="i" src="' + printUrl + '" /></body></html>'
+              }
+              src={printUrl.toLowerCase().includes('.pdf') ? printUrl : undefined}
+              onLoad={() => {
+                if (printUrl.toLowerCase().includes('.pdf')) {
+                  // PDF：1 秒后认为就绪
+                  setTimeout(() => setPrintReady(true), 800);
+                  return;
+                }
+                const doc = printIframeRef.current?.contentDocument;
+                const img = doc?.getElementById('i') as HTMLImageElement | null;
+                if (!img) { setPrintReady(true); return; }
+                if (img.complete && img.naturalWidth > 0) setPrintReady(true);
+                else {
+                  img.onload = () => setPrintReady(true);
+                  img.onerror = () => setPrintReady(true);
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        .print-modal {
+          position: fixed; inset: 0; z-index: 9999;
+          background: rgba(0,0,0,.85);
+          display: flex; justify-content: center; align-items: center;
+          padding: 16px;
+        }
+        .print-modal-inner {
+          width: 100%; max-width: 900px; max-height: 95vh;
+          background: #fff; border-radius: 14px; overflow: hidden;
+          display: flex; flex-direction: column;
+          box-shadow: 0 20px 60px rgba(0,0,0,.4);
+        }
+        .print-modal-bar {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 12px 14px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+        }
+        .print-modal-title {
+          font-size: 14px; color: #475569; font-weight: 600;
+          flex: 1; text-align: center;
+        }
+        .print-cancel {
+          background: rgba(0,0,0,.04); color: #475569;
+          border: 1px solid #e2e8f0; border-radius: 8px;
+          padding: 8px 14px; font-size: 14px; font-weight: 600;
+        }
+        .print-confirm {
+          background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff;
+          border: none; border-radius: 8px;
+          padding: 10px 22px; font-size: 15px; font-weight: 700;
+          box-shadow: 0 4px 12px rgba(37,99,235,.35);
+        }
+        .print-confirm:disabled {
+          background: #94a3b8; box-shadow: none; cursor: not-allowed;
+        }
+        .print-iframe {
+          flex: 1; border: 0; background: #fff;
+          min-height: 60vh;
+        }
+      `}</style>
     </>
   )
 }
