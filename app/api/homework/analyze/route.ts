@@ -77,7 +77,7 @@ D. 看不清整道题就在心里归为"无法识别"，不要瞎猜。
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'qwen3.5-plus',
+          model: 'qwen3.6-plus',
           messages: [{ role: 'user', content: aiContent }],
           temperature: 0.1
         })
