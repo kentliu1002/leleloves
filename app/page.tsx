@@ -87,14 +87,55 @@ export default function ChildDashboard() {
   // 🚀 全自动打印函数（纯净 DOM 版，防 Vercel 报错）
   const handlePrint = (e: React.MouseEvent, url: string) => {
     e.preventDefault();
-    // 直接在新标签打开原始文件，让用户用 Safari/Chrome 自带的"分享 → 打印"
-    // 走 iOS 原生打印路径（与相册打印一致），能正确处理 AirPrint 证书警告
-    // 之前用 window.print() 在子窗口里调起，证书"信任此打印机"按钮被吞 → 失败
-    window.open(url, '_blank', 'noopener,noreferrer');
-    // 简短提示用户下一步操作
-    setTimeout(() => {
-      alert('请在新打开的页面右上角点 ↗ 分享 → 选择"打印"。\n（首次会提示信任打印机，点"信任"即可）');
-    }, 200);
+    // 一键打印：在主页面里塞隐藏 iframe，从主窗口上下文调 print()
+    // iOS AirPrint 的"信任打印机"等系统对话框在主窗口能正常显示和点击
+    // （之前用 window.open 弹出子窗口，系统对话框 UI 受限）
+    const existing = document.getElementById('__print_iframe__');
+    if (existing) existing.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = '__print_iframe__';
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;border:0;opacity:0;';
+    document.body.appendChild(iframe);
+
+    const isPdf = url.toLowerCase().includes('.pdf');
+    const triggerPrint = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err: any) {
+        // 跨域 PDF 可能拒绝 print；兜底为新标签打开
+        window.open(url, '_blank', 'noopener,noreferrer');
+        alert('请在新打开的页面用 ↗ 分享 → 打印');
+      }
+    };
+
+    if (isPdf) {
+      // PDF 直接用 src（跨域加载 OK，能否 print() 看浏览器；失败有兜底）
+      iframe.src = url;
+      iframe.onload = () => setTimeout(triggerPrint, 1200);
+    } else {
+      // 图片：用 srcdoc 写一个本地 HTML 包裹（同源于父页面，print() 可正常调用）
+      iframe.srcdoc =
+        '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+        '<style>@page{margin:0}body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh}' +
+        'img{max-width:100%;max-height:100vh;object-fit:contain}</style>' +
+        '</head><body><img id="i" src="' + url + '" crossorigin="anonymous" /></body></html>';
+      iframe.onload = () => {
+        const doc = iframe.contentDocument;
+        const img = doc?.getElementById('i') as HTMLImageElement | null;
+        if (!img) { triggerPrint(); return; }
+        if (img.complete && img.naturalWidth > 0) {
+          setTimeout(triggerPrint, 100);
+        } else {
+          img.onload = () => setTimeout(triggerPrint, 100);
+          img.onerror = () => {
+            // 图片加载失败兜底
+            window.open(url, '_blank', 'noopener,noreferrer');
+          };
+        }
+      };
+    }
   };
 
   const handleAnalyze = async (id: string) => {
