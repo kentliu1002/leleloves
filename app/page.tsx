@@ -87,48 +87,14 @@ export default function ChildDashboard() {
   // 🚀 全自动打印函数（纯净 DOM 版，防 Vercel 报错）
   const handlePrint = (e: React.MouseEvent, url: string) => {
     e.preventDefault();
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('请允许浏览器弹出窗口哦');
-      return;
-    }
-
-    const isPdf = url.toLowerCase().includes('.pdf');
-    
-    printWindow.document.write("<!DOCTYPE html><html><head><title>打印作业</title></head><body></body></html>");
-    printWindow.document.close();
-    
-    const doc = printWindow.document;
-    
-    const style = doc.createElement('style');
-    style.innerHTML = "@media print { @page { margin: 0; } body { margin: 0; padding: 0; } .no-print { display: none; } img, iframe { max-width: 100%; max-height: 100vh; object-fit: contain; } } body { margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; background: #fff; font-family: sans-serif;} .header { width: 100%; padding: 15px; text-align: center; color: #666; font-size: 14px; background: #f8f9fa; border-bottom: 1px solid #eee; } .content { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; }";
-    doc.head.appendChild(style);
-
-    const header = doc.createElement('div');
-    header.className = "header no-print";
-    header.innerHTML = isPdf ? '⚠️ iPad 提示：如果未自动弹出打印界面，请点击下方文档，点击右上角 <b>“共享 ↗”</b> 选择 <b>“打印”</b>。' : '正在准备打印机，请稍候...';
-    doc.body.appendChild(header);
-
-    const content = doc.createElement('div');
-    content.className = "content";
-    
-    if (isPdf) {
-      const iframe = doc.createElement('iframe');
-      iframe.src = url;
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-      iframe.style.border = "none";
-      iframe.onload = () => setTimeout(() => printWindow.print(), 1500);
-      content.appendChild(iframe);
-    } else {
-      const img = doc.createElement('img');
-      img.src = url;
-      img.onload = () => setTimeout(() => printWindow.print(), 500);
-      content.appendChild(img);
-    }
-    
-    doc.body.appendChild(content);
+    // 直接在新标签打开原始文件，让用户用 Safari/Chrome 自带的"分享 → 打印"
+    // 走 iOS 原生打印路径（与相册打印一致），能正确处理 AirPrint 证书警告
+    // 之前用 window.print() 在子窗口里调起，证书"信任此打印机"按钮被吞 → 失败
+    window.open(url, '_blank', 'noopener,noreferrer');
+    // 简短提示用户下一步操作
+    setTimeout(() => {
+      alert('请在新打开的页面右上角点 ↗ 分享 → 选择"打印"。\n（首次会提示信任打印机，点"信任"即可）');
+    }, 200);
   };
 
   const handleAnalyze = async (id: string) => {
