@@ -2,3 +2,4 @@
 .env*.local
 *.local
 .env.production
+.env*

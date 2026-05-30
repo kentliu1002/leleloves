@@ -108,28 +108,47 @@ export async function completeHomework(formData: FormData) {
 
 // 4. 删除作业（支持单条和批量，并自动清理存储桶内的文件）
 export async function deleteHomework(ids: string[]) {
-  // 先查询这些作业是否有附件或打卡图片
+  // 先查询这些作业的全部文件字段
   const { data: items } = await supabase
     .from('homework')
-    .select('file_url, proof_image')
+    .select('file_url, file_urls, proof_image')
     .in('id', ids)
 
   if (items) {
+    const allNames: string[] = []
     for (const item of items) {
-      // 删掉布置作业时带的附件
+      // 老字段：单附件 file_url
       if (item.file_url) {
-        const fileName = item.file_url.split('/').pop()
-        if (fileName) await supabase.storage.from('attachments').remove([fileName])
+        const n = (item.file_url as string).split('/').pop()
+        if (n) allNames.push(n)
       }
-      // 删掉孩子打卡拍的照片（兼容单 URL 和 JSON 数组两种格式）
+      // 新字段：多附件 file_urls JSON 数组 [{url,type,filename},...]
+      if (item.file_urls) {
+        try {
+          const arr = JSON.parse(item.file_urls as string)
+          if (Array.isArray(arr)) {
+            for (const f of arr) {
+              const u = typeof f === 'string' ? f : f?.url
+              const n = u?.split('/').pop()
+              if (n) allNames.push(n)
+            }
+          }
+        } catch {}
+      }
+      // 打卡照片（兼容单 URL 和 JSON 数组两种格式）
       if (item.proof_image) {
         let proofUrls: string[] = []
-        try { proofUrls = JSON.parse(item.proof_image) } catch { proofUrls = [item.proof_image] }
+        try { proofUrls = JSON.parse(item.proof_image as string) }
+        catch { proofUrls = [item.proof_image as string] }
         for (const url of proofUrls) {
-          const proofName = url.split('/').pop()
-          if (proofName) await supabase.storage.from('attachments').remove([proofName])
+          const n = url?.split('/').pop()
+          if (n) allNames.push(n)
         }
       }
+    }
+    if (allNames.length > 0) {
+      // 批量删除，Supabase 一次最多 1000 个
+      await supabase.storage.from('attachments').remove(allNames)
     }
   }
 
@@ -138,7 +157,7 @@ export async function deleteHomework(ids: string[]) {
     .from('homework')
     .delete()
     .in('id', ids)
-    
+
   if (error) throw new Error(error.message)
   return { success: true }
 }
