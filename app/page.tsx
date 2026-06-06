@@ -96,11 +96,11 @@ export default function ChildDashboard() {
     setPrintUrl(url);
   };
 
-  // 用户在预览里点"打印"按钮触发（第 2 步：同步调用 print()，符合 iOS 用户手势要求）
+  // 用户在预览里点"打印"按钮触发：直接调主窗口 window.print()
+  // 配合 @media print CSS 隐藏除打印图片外的所有元素
   const confirmPrint = () => {
     try {
-      printIframeRef.current?.contentWindow?.focus();
-      printIframeRef.current?.contentWindow?.print();
+      window.print();
     } catch (err) {
       if (printUrl) window.open(printUrl, '_blank', 'noopener,noreferrer');
     }
@@ -775,7 +775,7 @@ export default function ChildDashboard() {
       {printUrl && (
         <div className="print-modal" onClick={closePrintModal}>
           <div className="print-modal-inner" onClick={(e) => e.stopPropagation()}>
-            <div className="print-modal-bar">
+            <div className="print-modal-bar no-print">
               <button className="print-cancel" onClick={closePrintModal}>✕ 取消</button>
               <div className="print-modal-title">{printReady ? '✅ 已就绪，点击打印' : '正在准备…'}</div>
               <button
@@ -786,35 +786,25 @@ export default function ChildDashboard() {
                 🖨️ 打印
               </button>
             </div>
-            <iframe
-              ref={printIframeRef}
-              className="print-iframe"
-              srcDoc={
-                printUrl.toLowerCase().includes('.pdf')
-                  ? undefined
-                  : '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-                    '<style>@page{margin:0}html,body{margin:0;padding:0;background:#fff}' +
-                    'body{display:flex;justify-content:center;align-items:center;min-height:100vh}' +
-                    'img{max-width:100%;max-height:100vh;object-fit:contain;display:block}</style>' +
-                    '</head><body><img id="i" src="' + printUrl + '" /></body></html>'
-              }
-              src={printUrl.toLowerCase().includes('.pdf') ? printUrl : undefined}
-              onLoad={() => {
-                if (printUrl.toLowerCase().includes('.pdf')) {
-                  // PDF：1 秒后认为就绪
-                  setTimeout(() => setPrintReady(true), 800);
-                  return;
-                }
-                const doc = printIframeRef.current?.contentDocument;
-                const img = doc?.getElementById('i') as HTMLImageElement | null;
-                if (!img) { setPrintReady(true); return; }
-                if (img.complete && img.naturalWidth > 0) setPrintReady(true);
-                else {
-                  img.onload = () => setPrintReady(true);
-                  img.onerror = () => setPrintReady(true);
-                }
-              }}
-            />
+            <div className="print-content">
+              {printUrl.toLowerCase().includes('.pdf') ? (
+                <iframe
+                  ref={printIframeRef}
+                  className="print-iframe"
+                  src={printUrl}
+                  onLoad={() => setTimeout(() => setPrintReady(true), 800)}
+                />
+              ) : (
+                // 关键：图片直接渲染在主页面 DOM，print() 走主窗口，配合 @media print 隔离
+                <img
+                  className="print-image"
+                  src={printUrl}
+                  alt="待打印作业"
+                  onLoad={() => setPrintReady(true)}
+                  onError={() => setPrintReady(true)}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -857,6 +847,51 @@ export default function ChildDashboard() {
         .print-iframe {
           flex: 1; border: 0; background: #fff;
           min-height: 60vh;
+        }
+        .print-content {
+          flex: 1; min-height: 60vh; overflow: auto;
+          display: flex; justify-content: center; align-items: center;
+          background: #fff; padding: 8px;
+        }
+        .print-image {
+          max-width: 100%; max-height: 100%; object-fit: contain;
+          display: block;
+        }
+      `}</style>
+      {/* 全局 @media print：打印时只显示模态里的图片/PDF，隐藏其他所有元素 */}
+      <style jsx global>{`
+        @media print {
+          @page { margin: 0; }
+          body { margin: 0; background: #fff !important; }
+          body > *:not(.print-modal) { display: none !important; }
+          .print-modal {
+            position: static !important;
+            background: none !important;
+            padding: 0 !important;
+            display: block !important;
+            inset: auto !important;
+          }
+          .print-modal-inner {
+            box-shadow: none !important;
+            max-width: none !important;
+            max-height: none !important;
+            border-radius: 0 !important;
+            width: 100% !important;
+          }
+          .no-print { display: none !important; }
+          .print-content {
+            padding: 0 !important;
+            min-height: auto !important;
+          }
+          .print-image {
+            max-width: 100% !important;
+            max-height: 100vh !important;
+            page-break-inside: avoid;
+          }
+          .print-iframe {
+            width: 100% !important;
+            min-height: 100vh !important;
+          }
         }
       `}</style>
     </>
