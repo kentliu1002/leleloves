@@ -45,7 +45,8 @@ export default function ChildDashboard() {
   const [localFeedback, setLocalFeedback] = useState<Record<string, string>>({})
   const [vocabStats, setVocabStats] = useState<{ masteredCount: number, todayStatus: { completed: boolean, newCount: number, reviewCount: number } } | null>(null)
   // 打印预览状态
-  const [printUrl, setPrintUrl] = useState<string | null>(null)
+  const [printUrl, setPrintUrl] = useState<string | null>(null)        // 原始 URL（PDF 用）
+  const [printImgSrc, setPrintImgSrc] = useState<string | null>(null)  // 图片用的本地 blob URL
   const [printReady, setPrintReady] = useState(false)
   const printIframeRef = useRef<HTMLIFrameElement>(null)
   
@@ -90,10 +91,22 @@ export default function ChildDashboard() {
 
   // 🚀 全自动打印函数（纯净 DOM 版，防 Vercel 报错）
   // 打开打印预览（第 1 步：异步加载图片到 iframe）
-  const handlePrint = (e: React.MouseEvent, url: string) => {
+  const handlePrint = async (e: React.MouseEvent, url: string) => {
     e.preventDefault();
     setPrintReady(false);
+    setPrintImgSrc(null);
     setPrintUrl(url);
+    // PDF 走 iframe，不转 blob
+    if (url.toLowerCase().includes('.pdf')) return;
+    // 图片：先 fetch 成本地 blob，避免打印渲染时跨域图片变全黑
+    try {
+      const resp = await fetch(url, { mode: 'cors' });
+      const blob = await resp.blob();
+      setPrintImgSrc(URL.createObjectURL(blob));
+    } catch {
+      // fetch 失败回退用原 URL（至少屏幕预览能看到）
+      setPrintImgSrc(url);
+    }
   };
 
   // 用户在预览里点"打印"按钮触发：直接调主窗口 window.print()
@@ -107,7 +120,9 @@ export default function ChildDashboard() {
   };
 
   const closePrintModal = () => {
+    if (printImgSrc && printImgSrc.startsWith('blob:')) URL.revokeObjectURL(printImgSrc);
     setPrintUrl(null);
+    setPrintImgSrc(null);
     setPrintReady(false);
   };
 
@@ -794,15 +809,17 @@ export default function ChildDashboard() {
                   src={printUrl}
                   onLoad={() => setTimeout(() => setPrintReady(true), 800)}
                 />
-              ) : (
-                // 关键：图片直接渲染在主页面 DOM，print() 走主窗口，配合 @media print 隔离
+              ) : printImgSrc ? (
+                // 用本地 blob URL，打印渲染时本地解码，避免跨域图片变全黑
                 <img
                   className="print-image"
-                  src={printUrl}
+                  src={printImgSrc}
                   alt="待打印作业"
                   onLoad={() => setPrintReady(true)}
                   onError={() => setPrintReady(true)}
                 />
+              ) : (
+                <div className="print-loading">图片加载中…</div>
               )}
             </div>
           </div>
