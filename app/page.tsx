@@ -102,12 +102,13 @@ export default function ChildDashboard() {
     const doc = printWindow.document;
     
     const style = doc.createElement('style');
-    style.innerHTML = "@media print { @page { margin: 0; } body { margin: 0; padding: 0; } .no-print { display: none; } img, iframe { max-width: 100%; max-height: 100vh; object-fit: contain; } } body { margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; background: #fff; font-family: sans-serif;} .header { width: 100%; padding: 15px; text-align: center; color: #666; font-size: 14px; background: #f8f9fa; border-bottom: 1px solid #eee; } .content { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; }";
+    style.innerHTML = "@media print { @page { margin: 0; } body { margin: 0; padding: 0; } .no-print { display: none; } img, iframe { max-width: 100%; max-height: 100vh; object-fit: contain; } } body { margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; background: #fff; font-family: sans-serif;} .header { width: 100%; padding: 15px; text-align: center; color: #666; font-size: 14px; background: #f8f9fa; border-bottom: 1px solid #eee; } .content { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; } .back-btn { display: inline-block; margin-top: 12px; padding: 10px 28px; background: #2563eb; color: #fff; font-size: 15px; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; }";
     doc.head.appendChild(style);
 
     const header = doc.createElement('div');
     header.className = "header no-print";
-    header.innerHTML = isPdf ? '⚠️ iPad 提示：如果未自动弹出打印界面，请点击下方文档，点击右上角 <b>“共享 ↗”</b> 选择 <b>“打印”</b>。' : '正在准备打印机，请稍候...';
+    const tip = isPdf ? '⚠️ iPad 提示：如果未自动弹出打印界面，请点击下方文档，点击右上角 <b>“共享 ↗”</b> 选择 <b>“打印”</b>。' : '正在准备打印机，请稍候...';
+    header.innerHTML = '<div>' + tip + '</div><button class="back-btn" onclick="window.close()">← 返回作业主页</button>';
     doc.body.appendChild(header);
 
     const content = doc.createElement('div');
