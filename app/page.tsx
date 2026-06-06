@@ -858,18 +858,24 @@ export default function ChildDashboard() {
           display: block;
         }
       `}</style>
-      {/* 全局 @media print：打印时只显示模态里的图片/PDF，隐藏其他所有元素 */}
+      {/* 全局 @media print：用 visibility 方案隔离，只打印模态里的图片/PDF */}
       <style jsx global>{`
         @media print {
           @page { margin: 0; }
-          body { margin: 0; background: #fff !important; }
-          body > *:not(.print-modal) { display: none !important; }
+          /* 强制白底，干掉深色背景和星空伪元素 */
+          html, body { background: #fff !important; margin: 0 !important; }
+          body::before, body::after { display: none !important; content: none !important; }
+          /* 先把所有元素隐藏（visibility 能穿透 Next.js 多层嵌套，子元素可单独 visible） */
+          body * { visibility: hidden !important; }
+          /* 只让打印模态及其内部可见 */
+          .print-modal, .print-modal * { visibility: visible !important; }
           .print-modal {
-            position: static !important;
-            background: none !important;
+            position: fixed !important;
+            inset: 0 !important;
+            background: #fff !important;
             padding: 0 !important;
+            margin: 0 !important;
             display: block !important;
-            inset: auto !important;
           }
           .print-modal-inner {
             box-shadow: none !important;
@@ -877,14 +883,19 @@ export default function ChildDashboard() {
             max-height: none !important;
             border-radius: 0 !important;
             width: 100% !important;
+            height: auto !important;
+            background: #fff !important;
           }
           .no-print { display: none !important; }
           .print-content {
             padding: 0 !important;
             min-height: auto !important;
+            display: block !important;
+            background: #fff !important;
           }
           .print-image {
             max-width: 100% !important;
+            width: auto !important;
             max-height: 100vh !important;
             page-break-inside: avoid;
           }
