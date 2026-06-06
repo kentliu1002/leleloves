@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getHomework } from '../lib/actions'
 import CheckInButton from './CheckInButton'
 
@@ -44,11 +44,6 @@ export default function ChildDashboard() {
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
   const [localFeedback, setLocalFeedback] = useState<Record<string, string>>({})
   const [vocabStats, setVocabStats] = useState<{ masteredCount: number, todayStatus: { completed: boolean, newCount: number, reviewCount: number } } | null>(null)
-  // 打印预览状态
-  const [printUrl, setPrintUrl] = useState<string | null>(null)        // 原始 URL（PDF 用）
-  const [printImgSrc, setPrintImgSrc] = useState<string | null>(null)  // 图片用的本地 blob URL
-  const [printReady, setPrintReady] = useState(false)
-  const printIframeRef = useRef<HTMLIFrameElement>(null)
   
   // 📅 生成过去7天的日期数组
   const last7Days = Array.from({length: 7}, (_, i) => {
@@ -90,40 +85,50 @@ export default function ChildDashboard() {
   }, [])
 
   // 🚀 全自动打印函数（纯净 DOM 版，防 Vercel 报错）
-  // 打开打印预览（第 1 步：异步加载图片到 iframe）
-  const handlePrint = async (e: React.MouseEvent, url: string) => {
+  const handlePrint = (e: React.MouseEvent, url: string) => {
     e.preventDefault();
-    setPrintReady(false);
-    setPrintImgSrc(null);
-    setPrintUrl(url);
-    // PDF 走 iframe，不转 blob
-    if (url.toLowerCase().includes('.pdf')) return;
-    // 图片：先 fetch 成本地 blob，避免打印渲染时跨域图片变全黑
-    try {
-      const resp = await fetch(url, { mode: 'cors' });
-      const blob = await resp.blob();
-      setPrintImgSrc(URL.createObjectURL(blob));
-    } catch {
-      // fetch 失败回退用原 URL（至少屏幕预览能看到）
-      setPrintImgSrc(url);
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('请允许浏览器弹出窗口哦');
+      return;
     }
-  };
 
-  // 用户在预览里点"打印"按钮触发：直接调主窗口 window.print()
-  // 配合 @media print CSS 隐藏除打印图片外的所有元素
-  const confirmPrint = () => {
-    try {
-      window.print();
-    } catch (err) {
-      if (printUrl) window.open(printUrl, '_blank', 'noopener,noreferrer');
+    const isPdf = url.toLowerCase().includes('.pdf');
+    
+    printWindow.document.write("<!DOCTYPE html><html><head><title>打印作业</title></head><body></body></html>");
+    printWindow.document.close();
+    
+    const doc = printWindow.document;
+    
+    const style = doc.createElement('style');
+    style.innerHTML = "@media print { @page { margin: 0; } body { margin: 0; padding: 0; } .no-print { display: none; } img, iframe { max-width: 100%; max-height: 100vh; object-fit: contain; } } body { margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; background: #fff; font-family: sans-serif;} .header { width: 100%; padding: 15px; text-align: center; color: #666; font-size: 14px; background: #f8f9fa; border-bottom: 1px solid #eee; } .content { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; }";
+    doc.head.appendChild(style);
+
+    const header = doc.createElement('div');
+    header.className = "header no-print";
+    header.innerHTML = isPdf ? '⚠️ iPad 提示：如果未自动弹出打印界面，请点击下方文档，点击右上角 <b>“共享 ↗”</b> 选择 <b>“打印”</b>。' : '正在准备打印机，请稍候...';
+    doc.body.appendChild(header);
+
+    const content = doc.createElement('div');
+    content.className = "content";
+    
+    if (isPdf) {
+      const iframe = doc.createElement('iframe');
+      iframe.src = url;
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.border = "none";
+      iframe.onload = () => setTimeout(() => printWindow.print(), 1500);
+      content.appendChild(iframe);
+    } else {
+      const img = doc.createElement('img');
+      img.src = url;
+      img.onload = () => setTimeout(() => printWindow.print(), 500);
+      content.appendChild(img);
     }
-  };
-
-  const closePrintModal = () => {
-    if (printImgSrc && printImgSrc.startsWith('blob:')) URL.revokeObjectURL(printImgSrc);
-    setPrintUrl(null);
-    setPrintImgSrc(null);
-    setPrintReady(false);
+    
+    doc.body.appendChild(content);
   };
 
   const handleAnalyze = async (id: string) => {
@@ -785,157 +790,6 @@ export default function ChildDashboard() {
         })}
 
       </div>
-
-      {/* 打印预览弹窗：iframe 先加载，用户点"打印"按钮同步触发 print()，符合 iOS 手势要求 */}
-      {printUrl && (
-        <div className="print-modal" onClick={closePrintModal}>
-          <div className="print-modal-inner" onClick={(e) => e.stopPropagation()}>
-            <div className="print-modal-bar no-print">
-              <button className="print-cancel" onClick={closePrintModal}>✕ 取消</button>
-              <div className="print-modal-title">{printReady ? '✅ 已就绪，点击打印' : '正在准备…'}</div>
-              <button
-                className="print-confirm"
-                onClick={confirmPrint}
-                disabled={!printReady}
-              >
-                🖨️ 打印
-              </button>
-            </div>
-            <div className="print-content">
-              {printUrl.toLowerCase().includes('.pdf') ? (
-                <iframe
-                  ref={printIframeRef}
-                  className="print-iframe"
-                  src={printUrl}
-                  onLoad={() => setTimeout(() => setPrintReady(true), 800)}
-                />
-              ) : printImgSrc ? (
-                // 用本地 blob URL，打印渲染时本地解码，避免跨域图片变全黑
-                <img
-                  className="print-image"
-                  src={printImgSrc}
-                  alt="待打印作业"
-                  onLoad={() => setPrintReady(true)}
-                  onError={() => setPrintReady(true)}
-                />
-              ) : (
-                <div className="print-loading">图片加载中…</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        .print-modal {
-          position: fixed; inset: 0; z-index: 9999;
-          background: rgba(0,0,0,.85);
-          display: flex; justify-content: center; align-items: center;
-          padding: 16px;
-        }
-        .print-modal-inner {
-          width: 100%; max-width: 900px; max-height: 95vh;
-          background: #fff; border-radius: 14px; overflow: hidden;
-          display: flex; flex-direction: column;
-          box-shadow: 0 20px 60px rgba(0,0,0,.4);
-        }
-        .print-modal-bar {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 12px 14px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
-        }
-        .print-modal-title {
-          font-size: 14px; color: #475569; font-weight: 600;
-          flex: 1; text-align: center;
-        }
-        .print-cancel {
-          background: rgba(0,0,0,.04); color: #475569;
-          border: 1px solid #e2e8f0; border-radius: 8px;
-          padding: 8px 14px; font-size: 14px; font-weight: 600;
-        }
-        .print-confirm {
-          background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff;
-          border: none; border-radius: 8px;
-          padding: 10px 22px; font-size: 15px; font-weight: 700;
-          box-shadow: 0 4px 12px rgba(37,99,235,.35);
-        }
-        .print-confirm:disabled {
-          background: #94a3b8; box-shadow: none; cursor: not-allowed;
-        }
-        .print-iframe {
-          flex: 1; border: 0; background: #fff;
-          min-height: 60vh;
-        }
-        .print-content {
-          flex: 1; min-height: 60vh; overflow: auto;
-          display: flex; justify-content: center; align-items: center;
-          background: #fff; padding: 8px;
-        }
-        .print-image {
-          max-width: 100%; max-height: 100%; object-fit: contain;
-          display: block;
-        }
-      `}</style>
-      {/* 全局 @media print：只打印模态里的图片/PDF，一刀切清掉所有深色背景/边距 */}
-      <style jsx global>{`
-        @media print {
-          @page { margin: 0; }
-          html, body {
-            background: #fff !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          /* 干掉所有伪元素（星空、色带光晕等都是 ::before/::after） */
-          *::before, *::after { display: none !important; content: none !important; }
-          /* 所有元素：隐藏 + 背景透明 + 去阴影边框（深蓝条来源一律清掉） */
-          body * {
-            visibility: hidden !important;
-            background: transparent !important;
-            background-image: none !important;
-            box-shadow: none !important;
-            border: none !important;
-          }
-          /* 只让打印模态及其内部可见 */
-          .print-modal, .print-modal * { visibility: visible !important; }
-          .print-modal {
-            position: fixed !important;
-            inset: 0 !important;
-            background: #fff !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            display: block !important;
-          }
-          .print-modal-inner {
-            max-width: none !important;
-            max-height: none !important;
-            width: 100% !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #fff !important;
-          }
-          .no-print { display: none !important; }
-          .print-content {
-            margin: 0 !important;
-            padding: 0 !important;
-            min-height: auto !important;
-            display: block !important;
-            background: #fff !important;
-          }
-          .print-image {
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            max-width: 100% !important;
-            max-height: none !important;
-            margin: 0 !important;
-            page-break-inside: avoid;
-          }
-          .print-iframe {
-            width: 100% !important;
-            min-height: 100vh !important;
-          }
-        }
-      `}</style>
     </>
   )
 }
