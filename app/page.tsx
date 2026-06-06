@@ -875,15 +875,25 @@ export default function ChildDashboard() {
           display: block;
         }
       `}</style>
-      {/* 全局 @media print：用 visibility 方案隔离，只打印模态里的图片/PDF */}
+      {/* 全局 @media print：只打印模态里的图片/PDF，一刀切清掉所有深色背景/边距 */}
       <style jsx global>{`
         @media print {
           @page { margin: 0; }
-          /* 强制白底，干掉深色背景和星空伪元素 */
-          html, body { background: #fff !important; margin: 0 !important; }
-          body::before, body::after { display: none !important; content: none !important; }
-          /* 先把所有元素隐藏（visibility 能穿透 Next.js 多层嵌套，子元素可单独 visible） */
-          body * { visibility: hidden !important; }
+          html, body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          /* 干掉所有伪元素（星空、色带光晕等都是 ::before/::after） */
+          *::before, *::after { display: none !important; content: none !important; }
+          /* 所有元素：隐藏 + 背景透明 + 去阴影边框（深蓝条来源一律清掉） */
+          body * {
+            visibility: hidden !important;
+            background: transparent !important;
+            background-image: none !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
           /* 只让打印模态及其内部可见 */
           .print-modal, .print-modal * { visibility: visible !important; }
           .print-modal {
@@ -895,25 +905,29 @@ export default function ChildDashboard() {
             display: block !important;
           }
           .print-modal-inner {
-            box-shadow: none !important;
             max-width: none !important;
             max-height: none !important;
-            border-radius: 0 !important;
             width: 100% !important;
             height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: #fff !important;
           }
           .no-print { display: none !important; }
           .print-content {
+            margin: 0 !important;
             padding: 0 !important;
             min-height: auto !important;
             display: block !important;
             background: #fff !important;
           }
           .print-image {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
             max-width: 100% !important;
-            width: auto !important;
-            max-height: 100vh !important;
+            max-height: none !important;
+            margin: 0 !important;
             page-break-inside: avoid;
           }
           .print-iframe {
