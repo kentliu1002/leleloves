@@ -14,7 +14,7 @@ const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
 
 /**
  * 🤖 AI 识别引擎 (百炼 Coding Plan 套餐模式)
- * 模型：qwen3.5-plus
+ * 模型：qwen3.6-plus
  */
 const VALID_SUBJECTS = ["语文", "数学", "英语", "科学", "历史", "地理", "政治"];
 
@@ -29,7 +29,7 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
   if (!DASHSCOPE_API_KEY) return matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
   const isVision = !!params.imageUrl;
 
-  // /no_think 禁用思考模式，避免 qwen3.5-plus 输出 <think> 块干扰匹配
+  // /no_think 禁用思考模式，避免 qwen3.6-plus 输出 <think> 块干扰匹配
   let messageContent: any;
   if (isVision) {
     messageContent = [
@@ -51,7 +51,7 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'qwen3.5-plus',
+        model: 'qwen3.6-plus',
         messages: [{ role: 'user', content: messageContent }]
       })
     });

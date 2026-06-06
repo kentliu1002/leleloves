@@ -10,7 +10,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// 使用 qwen3.5-plus 生成一个适合小学生水平的简单例句 + 中文翻译
+// 使用 qwen3.6-plus 生成一个适合小学生水平的简单例句 + 中文翻译
 async function generateExample(word: string, meaning: string): Promise<{ en: string, zh: string }> {
   const prompt = `请为英语单词 "${word}" (${meaning}) 生成一个适合中国小学生水平的简单英语例句（10个单词以内，使用最基础的语法），并给出对应中文翻译。
 
@@ -31,7 +31,7 @@ async function generateExample(word: string, meaning: string): Promise<{ en: str
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'qwen3.5-plus',
+          model: 'qwen3.6-plus',
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.3
         })
