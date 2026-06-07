@@ -22,12 +22,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// 下载图片转 data URL（base64 内联）。豆包服务器在国内拉海外 Supabase 图常超时，
+// 改由 Vercel 函数（香港，离 Supabase 近）下载后内联，豆包直接解码无需联网。
+async function toDataUrl(url: string): Promise<string | null> {
+  try {
+    const r = await fetch(url)
+    if (!r.ok) return null
+    const buf = Buffer.from(await r.arrayBuffer())
+    const mime = r.headers.get('content-type') || 'image/jpeg'
+    return `data:${mime};base64,${buf.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
 // 同步执行分析，返回 feedback 文本或 null（失败）
 async function runAnalysis(content: string, proofImage: string | null): Promise<string | null> {
   let imageUrls: string[] = []
   try { imageUrls = JSON.parse(proofImage || '[]') }
   catch { if (proofImage) imageUrls = [proofImage] }
   if (imageUrls.length === 0) return null
+
+  // 下载所有图片转 base64（并发），过滤失败的
+  const dataUrls = (await Promise.all(imageUrls.map(toDataUrl))).filter(Boolean) as string[]
+  if (dataUrls.length === 0) return null
 
   const aiContent: any[] = [
     {
@@ -63,7 +81,7 @@ D. 看不清整道题就在心里归为"无法识别"，不要瞎猜。
 
 宁可说"不确定/请家长核对"也不要瞎判对错。识别错误造成的误判比说不确定更严重。`
     },
-    ...imageUrls.map((url: string) => ({ type: 'image_url', image_url: { url } }))
+    ...dataUrls.map((url: string) => ({ type: 'image_url', image_url: { url } }))
   ]
 
   // 调 AI（3 次重试，缓解 HK→阿里云网络抖动）

@@ -27,17 +27,29 @@ function matchSubjectFromText(text: string): string {
 
 async function analyzeHomeworkAI(params: { text?: string, filename?: string, imageUrl?: string }) {
   if (!ARK_API_KEY) return matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
-  const isVision = !!params.imageUrl;
 
-  // /no_think 指令（豆包为推理模型，content 字段已是干净输出）
+  // 豆包国内拉海外 Supabase 图常超时，先下载转 base64 内联
+  let dataUrl: string | null = null;
+  if (params.imageUrl) {
+    try {
+      const r = await fetch(params.imageUrl);
+      if (r.ok) {
+        const buf = Buffer.from(await r.arrayBuffer());
+        const mime = r.headers.get('content-type') || 'image/jpeg';
+        dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+      }
+    } catch { dataUrl = null; }
+  }
+  const isVision = !!dataUrl;
+
   let messageContent: any;
   if (isVision) {
     messageContent = [
       {
         type: "text",
-        text: `/no_think 请判断下面这张作业图片属于哪个学科（只能从以下选项中选一个输出：语文、数学、英语、科学、历史、地理、政治、其它）。文件名参考：${params.filename || ''}。只输出学科名，不要其他文字。`
+        text: `请判断下面这张作业图片属于哪个学科（只能从以下选项中选一个输出：语文、数学、英语、科学、历史、地理、政治、其它）。文件名参考：${params.filename || ''}。只输出学科名，不要其他文字。`
       },
-      { type: "image_url", image_url: { url: params.imageUrl } }
+      { type: "image_url", image_url: { url: dataUrl } }
     ];
   } else {
     messageContent = `/no_think 判断作业学科（只输出：语文/数学/英语/科学/历史/地理/政治/其它 之一）。文件名: ${params.filename || '无'}, 内容: ${params.text || '无'}。`;
