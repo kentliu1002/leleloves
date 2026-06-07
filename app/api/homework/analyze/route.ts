@@ -70,14 +70,14 @@ D. 看不清整道题就在心里归为"无法识别"，不要瞎猜。
   let aiRes: Response | null = null
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      aiRes = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
+      aiRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.DASHSCOPE_API_KEY}`,
+          'Authorization': `Bearer ${process.env.ARK_API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'qwen3.6-plus',
+          model: 'doubao-seed-2-0-pro-260215',
           messages: [{ role: 'user', content: aiContent }],
           temperature: 0.1
         })

@@ -10,11 +10,11 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY!
 );
 
-const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
+const ARK_API_KEY = process.env.ARK_API_KEY;
 
 /**
  * 🤖 AI 识别引擎 (百炼 Coding Plan 套餐模式)
- * 模型：qwen3.6-plus
+ * 模型：doubao-seed-2-0-pro（火山方舟）
  */
 const VALID_SUBJECTS = ["语文", "数学", "英语", "科学", "历史", "地理", "政治"];
 
@@ -26,10 +26,10 @@ function matchSubjectFromText(text: string): string {
 }
 
 async function analyzeHomeworkAI(params: { text?: string, filename?: string, imageUrl?: string }) {
-  if (!DASHSCOPE_API_KEY) return matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
+  if (!ARK_API_KEY) return matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
   const isVision = !!params.imageUrl;
 
-  // /no_think 禁用思考模式，避免 qwen3.6-plus 输出 <think> 块干扰匹配
+  // /no_think 指令（豆包为推理模型，content 字段已是干净输出）
   let messageContent: any;
   if (isVision) {
     messageContent = [
@@ -44,14 +44,14 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
   }
 
   try {
-    const response = await fetch('https://coding.dashscope.aliyuncs.com/v1/chat/completions', {
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
+        'Authorization': `Bearer ${ARK_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'qwen3.6-plus',
+        model: 'doubao-seed-2-0-pro-260215',
         messages: [{ role: 'user', content: messageContent }]
       })
     });
