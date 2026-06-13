@@ -27,7 +27,10 @@ const supabase = createClient(
 // 1) 豆包国内拉海外 Supabase 图常超时，改由 Vercel（香港，离 Supabase 近）下载内联
 // 2) 关键：压缩到 1600px / JPEG76，请求体从 ~1MB 降到 ~350KB，
 //    大幅减少香港→火山北京跨境上传量，降低超时概率
-async function toDataUrl(url: string): Promise<string | null> {
+async function toDataUrl(url: string, count: number = 1): Promise<string | null> {
+  // 图越多压越狠，控制香港→火山北京跨境总请求体（多图易超时是主因）
+  const dim = count >= 3 ? 1024 : count === 2 ? 1280 : 1600
+  const q = count >= 3 ? 68 : count === 2 ? 72 : 76
   try {
     const r = await fetch(url)
     if (!r.ok) return null
@@ -35,8 +38,8 @@ async function toDataUrl(url: string): Promise<string | null> {
     try {
       const out = await sharp(input)
         .rotate()  // 按 EXIF 自动转正
-        .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 76 })
+        .resize(dim, dim, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: q })
         .toBuffer()
       return `data:image/jpeg;base64,${out.toString('base64')}`
     } catch {
@@ -56,8 +59,10 @@ async function runAnalysis(content: string, proofImage: string | null): Promise<
   catch { if (proofImage) imageUrls = [proofImage] }
   if (imageUrls.length === 0) return null
 
-  // 下载所有图片转 base64（并发），过滤失败的
-  const dataUrls = (await Promise.all(imageUrls.map(toDataUrl))).filter(Boolean) as string[]
+  // 下载所有图片转 base64（并发），按图片数动态压缩，过滤失败的
+  const dataUrls = (await Promise.all(
+    imageUrls.map(u => toDataUrl(u, imageUrls.length))
+  )).filter(Boolean) as string[]
   if (dataUrls.length === 0) return null
 
   const aiContent: any[] = [
