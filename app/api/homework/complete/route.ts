@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { waitUntil } from '@vercel/functions'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300   // 后台 waitUntil 跑 AI 分析需存活到分析完成
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,6 +39,21 @@ export async function POST(request: Request) {
     }
     if (!data || data.length === 0) {
       return NextResponse.json({ success: false, error: `作业 ${id} 未找到` }, { status: 404 })
+    }
+
+    // 打卡成功后自动后台触发 AI 分析（仅当有照片）。
+    // waitUntil 保证响应返回后后台任务继续执行不被回收。
+    // 自调 analyze 接口复用其压缩+重试逻辑；学生端无需等待，结果稍后自动出现。
+    if (proofUrls.length > 0) {
+      const origin = new URL(request.url).origin
+      waitUntil(
+        fetch(`${origin}/api/homework/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        }).then(r => console.log('[complete-api] auto-analyze triggered:', r.status))
+          .catch(e => console.error('[complete-api] auto-analyze failed:', e?.message))
+      )
     }
 
     return NextResponse.json({ success: true, updatedRow: data[0] })
