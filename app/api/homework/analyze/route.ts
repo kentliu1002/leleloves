@@ -28,9 +28,9 @@ const supabase = createClient(
 // 2) 关键：压缩到 1600px / JPEG76，请求体从 ~1MB 降到 ~350KB，
 //    大幅减少香港→火山北京跨境上传量，降低超时概率
 async function toDataUrl(url: string, count: number = 1): Promise<string | null> {
-  // 图越多压越狠，控制香港→火山北京跨境总请求体（多图易超时是主因）
-  const dim = count >= 3 ? 1024 : count === 2 ? 1280 : 1600
-  const q = count >= 3 ? 68 : count === 2 ? 72 : 76
+  // 图越多压越狠，控制香港→火山北京跨境总请求体（多图大 body 易在传输中被重置）
+  const dim = count >= 3 ? 900 : count === 2 ? 1024 : 1600
+  const q = count >= 3 ? 66 : count === 2 ? 70 : 76
   try {
     const r = await fetch(url)
     if (!r.ok) return null
