@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import sharp from 'sharp'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300   // Vercel 现所有计划支持 300s；单次视觉分析约 40-60s
@@ -22,15 +23,27 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// 下载图片转 data URL（base64 内联）。豆包服务器在国内拉海外 Supabase 图常超时，
-// 改由 Vercel 函数（香港，离 Supabase 近）下载后内联，豆包直接解码无需联网。
+// 下载图片 → sharp 压缩 → base64 内联。
+// 1) 豆包国内拉海外 Supabase 图常超时，改由 Vercel（香港，离 Supabase 近）下载内联
+// 2) 关键：压缩到 1600px / JPEG76，请求体从 ~1MB 降到 ~350KB，
+//    大幅减少香港→火山北京跨境上传量，降低超时概率
 async function toDataUrl(url: string): Promise<string | null> {
   try {
     const r = await fetch(url)
     if (!r.ok) return null
-    const buf = Buffer.from(await r.arrayBuffer())
-    const mime = r.headers.get('content-type') || 'image/jpeg'
-    return `data:${mime};base64,${buf.toString('base64')}`
+    const input = Buffer.from(await r.arrayBuffer())
+    try {
+      const out = await sharp(input)
+        .rotate()  // 按 EXIF 自动转正
+        .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 76 })
+        .toBuffer()
+      return `data:image/jpeg;base64,${out.toString('base64')}`
+    } catch {
+      // sharp 失败（极少）回退原图
+      const mime = r.headers.get('content-type') || 'image/jpeg'
+      return `data:${mime};base64,${input.toString('base64')}`
+    }
   } catch {
     return null
   }
@@ -84,29 +97,37 @@ D. 看不清整道题就在心里归为"无法识别"，不要瞎猜。
     ...dataUrls.map((url: string) => ({ type: 'image_url', image_url: { url } }))
   ]
 
-  // 调 AI（3 次重试，缓解 HK→阿里云网络抖动）
+  // 调 AI：4 次重试 + 每次 70s 单次超时 + 退避，缓解香港→火山北京跨境抖动。
+  // 最坏 4×70 + 退避 ≈ 286s，控制在 maxDuration 300s 内。
+  const body = JSON.stringify({
+    model: 'doubao-seed-2-0-pro-260215',
+    messages: [{ role: 'user', content: aiContent }],
+    temperature: 0.1
+  })
   let aiRes: Response | null = null
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 70000)
     try {
+      const t0 = Date.now()
       aiRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.ARK_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          model: 'doubao-seed-2-0-pro-260215',
-          messages: [{ role: 'user', content: aiContent }],
-          temperature: 0.1
-        })
+        body,
+        signal: ctrl.signal
       })
+      clearTimeout(timer)
+      console.error(`[analyze] attempt ${attempt} status=${aiRes.status} in ${Date.now() - t0}ms`)
       if (aiRes.ok) break
-      console.error('[analyze] AI HTTP', aiRes.status, 'attempt', attempt)
       aiRes = null
     } catch (e: any) {
-      console.error('[analyze] fetch failed attempt', attempt, e?.message)
-      if (attempt < 3) await new Promise(r => setTimeout(r, 500 * attempt))
+      clearTimeout(timer)
+      console.error(`[analyze] attempt ${attempt} failed:`, e?.name === 'AbortError' ? 'timeout(70s)' : e?.message)
     }
+    if (attempt < 4) await new Promise(r => setTimeout(r, 1000 * attempt))
   }
   if (!aiRes) return null
 
