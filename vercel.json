@@ -1,8 +1,8 @@
 {
-  "regions": ["sin1"],
+  "regions": ["hkg1"],
   "functions": {
     "app/api/**": {
-      "regions": ["sin1"]
+      "regions": ["hkg1"]
     }
   },
   "crons": [
