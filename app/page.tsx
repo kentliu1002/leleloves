@@ -651,11 +651,10 @@ export default function ChildDashboard() {
           </div>
 
           <button
-            onClick={fetchHW}
-            disabled={isRefreshing}
-            className={`refresh-btn${isRefreshing ? ' busy' : ''}`}
+            onClick={() => window.location.reload()}
+            className="refresh-btn"
           >
-            <span className={`ricon${isRefreshing ? ' spin' : ''}`}>🔄</span>
+            <span className="ricon">🔄</span>
             <span className="rlabel">刷新</span>
           </button>
         </div>
