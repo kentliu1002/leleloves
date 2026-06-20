@@ -16,7 +16,7 @@
     },
     {
       "path": "/api/cron/analyze-pending",
-      "schedule": "0 */3 * * *"
+      "schedule": "0 15 * * *"
     }
   ],
   "headers": [
