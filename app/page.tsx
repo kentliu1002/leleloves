@@ -64,8 +64,21 @@ export default function ChildDashboard() {
 
   const fetchVocabStats = async () => {
     try {
-      const res = await fetch('/api/vocab/stats', { cache: 'no-store' })
-      if (res.ok) setVocabStats(await res.json())
+      // 同时调 today（幂等生成今天 session 并返回准确待学数量）和 stats（累计掌握数）
+      const [statsRes, todayRes] = await Promise.all([
+        fetch('/api/vocab/stats', { cache: 'no-store' }),
+        fetch('/api/vocab/today', { cache: 'no-store' })
+      ])
+      const stats = statsRes.ok ? await statsRes.json() : {}
+      const today = todayRes.ok ? await todayRes.json() : {}
+      setVocabStats({
+        masteredCount: stats.masteredCount ?? 0,
+        todayStatus: {
+          completed: !!today.completedToday,
+          newCount: (today.newWords || []).length,
+          reviewCount: (today.reviewWords || []).length
+        }
+      })
     } catch {}
   }
 
