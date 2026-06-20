@@ -105,7 +105,7 @@ D. 看不清整道题就在心里归为"无法识别"，不要瞎猜。
   // 调 AI：4 次重试 + 每次 70s 单次超时 + 退避，缓解香港→火山北京跨境抖动。
   // 最坏 4×70 + 退避 ≈ 286s，控制在 maxDuration 300s 内。
   const body = JSON.stringify({
-    model: 'doubao-seed-2-0-pro-260215',
+    model: 'doubao-seed-2.0-pro',
     messages: [{ role: 'user', content: aiContent }],
     temperature: 0.1
   })
@@ -115,7 +115,7 @@ D. 看不清整道题就在心里归为"无法识别"，不要瞎猜。
     const timer = setTimeout(() => ctrl.abort(), 70000)
     try {
       const t0 = Date.now()
-      aiRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      aiRes = await fetch('https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.ARK_API_KEY}`,

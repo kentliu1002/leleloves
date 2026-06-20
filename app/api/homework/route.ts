@@ -14,7 +14,7 @@ const ARK_API_KEY = process.env.ARK_API_KEY;
 
 /**
  * 🤖 AI 识别引擎 (百炼 Coding Plan 套餐模式)
- * 模型：doubao-seed-2-0-pro（火山方舟）
+ * 模型：doubao-seed-2.0-pro（火山方舟 coding）
  */
 const VALID_SUBJECTS = ["语文", "数学", "英语", "科学", "历史", "地理", "政治"];
 
@@ -56,14 +56,14 @@ async function analyzeHomeworkAI(params: { text?: string, filename?: string, ima
   }
 
   try {
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${ARK_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'doubao-seed-2-0-pro-260215',
+        model: 'doubao-seed-2.0-pro',
         messages: [{ role: 'user', content: messageContent }]
       })
     });
