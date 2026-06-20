@@ -294,8 +294,18 @@ export default function ChildDashboard() {
   }
   const scoreGuide = getTodayScoreGuide()
 
-  const totalHomework = displayHomework.length;
-  const completedHomework = displayHomework.filter((item: any) => item.is_completed).length;
+  // 英语单词必做任务：跟作业窗口一致——仅「今天」且当天有常规作业、且有词可学（或已完成）时纳入
+  const vocabToday = vocabStats?.todayStatus
+  const hasVocabTask = isTodaySelected
+    && displayHomework.length > 0
+    && !!vocabToday
+    && (vocabToday.completed || (vocabToday.newCount + vocabToday.reviewCount) > 0)
+  const vocabDone = hasVocabTask && !!vocabToday?.completed
+
+  const baseTotal = displayHomework.length;
+  const baseDone = displayHomework.filter((item: any) => item.is_completed).length;
+  const totalHomework = baseTotal + (hasVocabTask ? 1 : 0);
+  const completedHomework = baseDone + (vocabDone ? 1 : 0);
   const progressRatio = totalHomework === 0 ? 0 : Math.round((completedHomework / totalHomework) * 100);
 
   return (
@@ -522,6 +532,7 @@ export default function ChildDashboard() {
           margin: 0 0 16px; text-decoration: none; color: #fff;
           box-shadow: 0 4px 16px rgba(99,102,241,.2);
         }
+        .vocab-card.vdone { opacity: .82; border-color: rgba(47,158,68,.4); }
         .vocab-left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
         .vocab-icon {
           font-size: 32px; flex-shrink: 0;
@@ -530,7 +541,14 @@ export default function ChildDashboard() {
           background: rgba(167,139,250,.15);
           border-radius: 12px;
         }
-        .vocab-title { font-size: 15px; font-weight: 900; color: #fff; }
+        .vocab-title { font-size: 15px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .vocab-badge {
+          font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 50px;
+          background: rgba(252,165,165,.18); color: #fca5a5; border: 1px solid rgba(252,165,165,.3);
+        }
+        .vocab-badge.ok {
+          background: rgba(110,231,183,.15); color: #6ee7b7; border-color: rgba(110,231,183,.3);
+        }
         .vocab-sub { font-size: 12px; color: #c4b5fd; margin-top: 3px; font-weight: 600; }
         .vocab-right { text-align: right; flex-shrink: 0; }
         .vocab-mastered {
@@ -592,26 +610,31 @@ export default function ChildDashboard() {
           </div>
         </div>
 
-        {/* 附加任务：每日英语单词 */}
-        <a href="/words" className="vocab-card">
-          <div className="vocab-left">
-            <div className="vocab-icon">📚</div>
-            <div>
-              <div className="vocab-title">今日英语附加任务</div>
-              <div className="vocab-sub">
-                {vocabStats?.todayStatus.completed
-                  ? '✅ 今日已完成 +5 积分'
-                  : vocabStats
-                    ? `${vocabStats.todayStatus.newCount} 新词 · ${vocabStats.todayStatus.reviewCount} 复习`
-                    : '加载中…'}
+        {/* 每日英语单词 · 必做任务（跟作业窗口一致，纳入完成进度） */}
+        {hasVocabTask && (
+          <a href="/words" className={`vocab-card${vocabDone ? ' vdone' : ''}`}>
+            <div className="vocab-left">
+              <div className="vocab-icon">📚</div>
+              <div>
+                <div className="vocab-title">
+                  英语单词
+                  <span className={`vocab-badge${vocabDone ? ' ok' : ''}`}>
+                    {vocabDone ? '✅ 已完成' : '必做 · 待完成'}
+                  </span>
+                </div>
+                <div className="vocab-sub">
+                  {vocabDone
+                    ? '今日单词任务已完成'
+                    : `${vocabToday!.newCount} 个新词 + ${vocabToday!.reviewCount} 个复习，点此开始`}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="vocab-right">
-            <div className="vocab-mastered">{vocabStats?.masteredCount ?? '—'}</div>
-            <div className="vocab-mastered-label">已掌握</div>
-          </div>
-        </a>
+            <div className="vocab-right">
+              <div className="vocab-mastered">{vocabStats?.masteredCount ?? '—'}</div>
+              <div className="vocab-mastered-label">已掌握</div>
+            </div>
+          </a>
+        )}
 
         {/* 指挥中心 */}
         <div className="hq">
