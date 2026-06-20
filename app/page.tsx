@@ -294,10 +294,9 @@ export default function ChildDashboard() {
   }
   const scoreGuide = getTodayScoreGuide()
 
-  // 英语单词必做任务：跟作业窗口一致——仅「今天」且当天有常规作业、且有词可学（或已完成）时纳入
+  // 英语单词必做任务：只要是「今天」且有词可学（或已完成）就必做，无论当天有没有布置作业
   const vocabToday = vocabStats?.todayStatus
   const hasVocabTask = isTodaySelected
-    && displayHomework.length > 0
     && !!vocabToday
     && (vocabToday.completed || (vocabToday.newCount + vocabToday.reviewCount) > 0)
   const vocabDone = hasVocabTask && !!vocabToday?.completed
