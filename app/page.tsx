@@ -622,32 +622,6 @@ export default function ChildDashboard() {
           </div>
         </div>
 
-        {/* 每日英语单词 · 必做任务（跟作业窗口一致，纳入完成进度） */}
-        {hasVocabTask && (
-          <a href="/words" className={`vocab-card${vocabDone ? ' vdone' : ''}`}>
-            <div className="vocab-left">
-              <div className="vocab-icon">📚</div>
-              <div>
-                <div className="vocab-title">
-                  英语单词
-                  <span className={`vocab-badge${vocabDone ? ' ok' : ''}`}>
-                    {vocabDone ? '✅ 已完成' : '必做 · 待完成'}
-                  </span>
-                </div>
-                <div className="vocab-sub">
-                  {vocabDone
-                    ? '今日单词任务已完成'
-                    : `${vocabToday!.newCount} 个新词 + ${vocabToday!.reviewCount} 个复习，点此开始`}
-                </div>
-              </div>
-            </div>
-            <div className="vocab-right">
-              <div className="vocab-mastered">{vocabStats?.masteredCount ?? '—'}</div>
-              <div className="vocab-mastered-label">已掌握</div>
-            </div>
-          </a>
-        )}
-
         {/* 指挥中心 */}
         <div className="hq">
           <div className="hq-rocket">🚀</div>
@@ -715,7 +689,33 @@ export default function ChildDashboard() {
         </div>
 
         {/* 作业列表 */}
-        {displayHomework.length === 0 && (
+        {/* 每日英语单词 · 必做任务（每天自动生成在当天作业列表里，纳入完成进度）*/}
+        {hasVocabTask && (
+          <a href="/words" className={`vocab-card${vocabDone ? ' vdone' : ''}`}>
+            <div className="vocab-left">
+              <div className="vocab-icon">📚</div>
+              <div>
+                <div className="vocab-title">
+                  英语单词
+                  <span className={`vocab-badge${vocabDone ? ' ok' : ''}`}>
+                    {vocabDone ? '✅ 已完成' : '必做 · 待完成'}
+                  </span>
+                </div>
+                <div className="vocab-sub">
+                  {vocabDone
+                    ? '今日单词任务已完成'
+                    : `${vocabToday!.newCount} 个新词 + ${vocabToday!.reviewCount} 个复习，点此开始`}
+                </div>
+              </div>
+            </div>
+            <div className="vocab-right">
+              <div className="vocab-mastered">{vocabStats?.masteredCount ?? '—'}</div>
+              <div className="vocab-mastered-label">已掌握</div>
+            </div>
+          </a>
+        )}
+
+        {displayHomework.length === 0 && !hasVocabTask && (
           <div className="empty-state">
             <div className="ei">📭</div>
             <p>这天暂时没有作业记录哦~</p>
