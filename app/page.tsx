@@ -567,6 +567,17 @@ export default function ChildDashboard() {
           font-size: 24px; font-weight: 900; color: #a78bfa; line-height: 1;
         }
         .vocab-mastered-label { font-size: 11px; color: #c4b5fd; margin-top: 4px; font-weight: 600; }
+        .vocab-start-btn {
+          flex-shrink: 0; margin-left: 14px;
+          padding: 10px 18px; border-radius: 12px;
+          font-size: 14px; font-weight: 800; white-space: nowrap;
+          background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff;
+          box-shadow: 0 4px 12px rgba(99,102,241,.4);
+        }
+        .vocab-start-btn.done {
+          background: rgba(110,231,183,.15); color: #6ee7b7;
+          border: 1px solid rgba(110,231,183,.3); box-shadow: none;
+        }
       `}</style>
 
       <div className="lele-wrap">
@@ -704,13 +715,16 @@ export default function ChildDashboard() {
                 <div className="vocab-sub">
                   {vocabDone
                     ? '今日单词任务已完成'
-                    : `${vocabToday!.newCount} 个新词 + ${vocabToday!.reviewCount} 个复习，点此开始`}
+                    : `${vocabToday!.newCount} 个新词 + ${vocabToday!.reviewCount} 个复习`}
                 </div>
               </div>
             </div>
             <div className="vocab-right">
               <div className="vocab-mastered">{vocabStats?.masteredCount ?? '—'}</div>
               <div className="vocab-mastered-label">已掌握</div>
+            </div>
+            <div className={`vocab-start-btn${vocabDone ? ' done' : ''}`}>
+              {vocabDone ? '✅ 已完成' : '开始 ›'}
             </div>
           </a>
         )}
