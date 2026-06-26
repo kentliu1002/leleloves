@@ -32,12 +32,19 @@ export default function WordsPage() {
   // 例句缓存: { [wordId]: { en, zh } | 'loading' | 'error' }
   const [examples, setExamples] = useState<Record<number, { en: string, zh: string } | 'loading' | 'error'>>({})
 
+  // 额外组（完成硬性任务后自愿继续，每组 +5 分，每天上限）
+  const [isExtra, setIsExtra] = useState(false)
+  const [extraGroupsToday, setExtraGroupsToday] = useState(0)
+  const [maxPerDay, setMaxPerDay] = useState(3)
+  const [startingExtra, setStartingExtra] = useState(false)
+
   // 拉今日 session
   useEffect(() => {
     fetch('/api/vocab/today').then(r => r.json()).then(d => {
       if (d.warning) { setWarning(d.warning); setPhase('noTopics'); return }
       setNewWords(d.newWords || [])
       setReviewWords(d.reviewWords || [])
+      if (typeof d.extraGroupsToday === 'number') setExtraGroupsToday(d.extraGroupsToday)
       if (d.completedToday) { setPhase('done'); return }
       if ((d.reviewWords || []).length > 0) setPhase('reviewQuiz')
       else if ((d.newWords || []).length > 0) setPhase('newStudy')
@@ -121,9 +128,9 @@ export default function WordsPage() {
         // 当前阶段结束
         if (phase === 'reviewQuiz') {
           if (newWords.length > 0) { setPhase('newStudy'); setStudyIdx(0); setIdx(0) }
-          else { await complete() }
+          else { await finishGroup() }
         } else if (phase === 'newQuiz') {
-          await complete()
+          await finishGroup()
         }
       }
     } else {
@@ -146,9 +153,43 @@ export default function WordsPage() {
   const [hintingWord, setHintingWord] = useState<Word | null>(null)
   const closeHint = () => setHintingWord(null)
 
-  const complete = async () => {
-    try { await fetch('/api/vocab/complete', { method: 'POST' }) } catch {}
+  // 一组结束：硬性组标记完成(+5)，额外组发额外 +5
+  const finishGroup = async () => {
+    if (isExtra) {
+      try {
+        const r = await fetch('/api/vocab/extra', { method: 'POST' }).then(r => r.json())
+        if (typeof r.extraGroupsToday === 'number') setExtraGroupsToday(r.extraGroupsToday)
+        if (typeof r.maxPerDay === 'number') setMaxPerDay(r.maxPerDay)
+      } catch {}
+    } else {
+      try { await fetch('/api/vocab/complete', { method: 'POST' }) } catch {}
+    }
+    setIsExtra(false)
     setPhase('done')
+  }
+
+  // 开始额外一组
+  const startExtra = async () => {
+    setStartingExtra(true)
+    try {
+      const d = await fetch('/api/vocab/extra').then(r => r.json())
+      if (d.error) {
+        if (typeof d.extraGroupsToday === 'number') setExtraGroupsToday(d.extraGroupsToday)
+        if (typeof d.maxPerDay === 'number') setMaxPerDay(d.maxPerDay)
+        setStartingExtra(false)
+        return
+      }
+      setReviewWords(d.reviewWords || [])
+      setNewWords(d.newWords || [])
+      if (typeof d.maxPerDay === 'number') setMaxPerDay(d.maxPerDay)
+      setExamples({})
+      setIdx(0); setStudyIdx(0); setInput(''); setWrong(false); setAttemptNo(1)
+      setIsExtra(true)
+      if ((d.reviewWords || []).length > 0) setPhase('reviewQuiz')
+      else if ((d.newWords || []).length > 0) setPhase('newStudy')
+      else setPhase('done')
+    } catch {}
+    setStartingExtra(false)
   }
 
   const onStudyNext = () => {
@@ -183,8 +224,23 @@ export default function WordsPage() {
       {phase === 'done' && (
         <div className="center notice-card">
           <div className="big-emoji">🎉</div>
-          <div className="notice-title">今日任务已完成</div>
-          <div className="notice-text">已获得 +5 积分。明天继续加油！</div>
+          <div className="notice-title">今日单词任务已完成</div>
+          <div className="notice-text">硬性任务已获得 +5 积分。</div>
+          {extraGroupsToday > 0 && (
+            <div className="notice-text">🎁 额外完成 {extraGroupsToday} 组，额外 +{extraGroupsToday * 5} 积分！</div>
+          )}
+          {extraGroupsToday < maxPerDay ? (
+            <>
+              <div className="notice-text">
+                还想继续吗？再完成一组（5复习+5新词）可得 +5 积分（{extraGroupsToday}/{maxPerDay}）
+              </div>
+              <button className="primary-btn" onClick={startExtra} disabled={startingExtra}>
+                {startingExtra ? '准备中…' : '🚀 再来一组 +5'}
+              </button>
+            </>
+          ) : (
+            <div className="notice-text">今日额外组已达上限（{maxPerDay}/{maxPerDay}），明天再来吧！💪</div>
+          )}
           <Link href="/" className="back-home-btn">回到首页</Link>
         </div>
       )}
@@ -192,7 +248,7 @@ export default function WordsPage() {
       {(phase === 'reviewQuiz' || phase === 'newQuiz') && currentWord && !hintingWord && (
         <div className="quiz-card">
           <div className="quiz-phase-label">
-            {phase === 'reviewQuiz' ? '🔁 复习阶段' : '✨ 新词测试'}
+            {(isExtra ? '🎁 额外组 · ' : '') + (phase === 'reviewQuiz' ? '🔁 复习阶段' : '✨ 新词测试')}
             <span className="progress-label">{idx + 1} / {currentList.length}</span>
           </div>
           <div className="quiz-meaning">{currentWord.meaning_zh}</div>
@@ -250,7 +306,7 @@ export default function WordsPage() {
         return (
           <div className="study-card">
             <div className="study-phase-label">
-              ✨ 学习新单词
+              {isExtra ? '🎁 额外组 · ✨ 学习新单词' : '✨ 学习新单词'}
               <span className="progress-label">{studyIdx + 1} / {newWords.length}</span>
             </div>
             <div className="big-word">{w.word}</div>

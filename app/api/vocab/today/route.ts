@@ -38,11 +38,15 @@ export async function GET() {
       const { data: words } = await supabase
         .from('vocabulary').select('*').in('id', allIds.length > 0 ? allIds : [-1])
       const wordMap = new Map((words || []).map(w => [w.id, w]))
+      // 今日已完成的额外组数（用于 done 阶段显示进度）
+      const { data: extraLogs } = await supabase
+        .from('points_log').select('id').eq('date', today).eq('source', 'vocab_extra')
       return NextResponse.json({
         date: today,
         newWords: newIds.map(id => wordMap.get(id)).filter(Boolean),
         reviewWords: reviewIds.map(id => wordMap.get(id)).filter(Boolean),
-        completedToday: !!existing.completed_at
+        completedToday: !!existing.completed_at,
+        extraGroupsToday: (extraLogs || []).length
       })
     }
 
