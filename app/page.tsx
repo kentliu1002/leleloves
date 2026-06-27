@@ -786,7 +786,7 @@ export default function ChildDashboard() {
                     <div className="done-badge">✅ 已完成打卡！</div>
                   ) : (
                     <div style={{ width: '100%', fontWeight: 'bold' }}>
-                      <CheckInButton id={item.id} isCompleted={item.is_completed} />
+                      <CheckInButton id={item.id} isCompleted={item.is_completed} submitType={item.submit_type} />
                     </div>
                   )}
                 </div>

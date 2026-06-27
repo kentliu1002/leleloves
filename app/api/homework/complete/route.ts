@@ -44,7 +44,9 @@ export async function POST(request: Request) {
     // 打卡成功后自动后台触发 AI 分析（仅当有照片）。
     // waitUntil 保证响应返回后后台任务继续执行不被回收。
     // 自调 analyze 接口复用其压缩+重试逻辑；学生端无需等待，结果稍后自动出现。
-    if (proofUrls.length > 0) {
+    // 录音作业（submit_type=audio）只提交不批改，跳过 AI 分析。
+    const isAudioSubmit = data[0]?.submit_type === 'audio'
+    if (proofUrls.length > 0 && !isAudioSubmit) {
       const origin = new URL(request.url).origin
       waitUntil(
         fetch(`${origin}/api/homework/analyze`, {

@@ -35,12 +35,88 @@ async function compressImage(file: File): Promise<File> {
   return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
 }
 
-export default function CheckInButton({ id, isCompleted }: { id: string, isCompleted: boolean }) {
+export default function CheckInButton({ id, isCompleted, submitType = 'photo' }: { id: string, isCompleted: boolean, submitType?: string }) {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(isCompleted)
   const [photos, setPhotos] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // ── 录音模式 ──
+  const [recording, setRecording] = useState(false)
+  const [audioUrl, setAudioUrl] = useState<string>('')
+  const audioBlobRef = useRef<Blob | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const startRec = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      chunksRef.current = []
+      const rec = new MediaRecorder(stream)
+      rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunksRef.current.push(ev.data) }
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' })
+        audioBlobRef.current = blob
+        setAudioUrl(URL.createObjectURL(blob))
+        streamRef.current?.getTracks().forEach(t => t.stop())
+      }
+      recorderRef.current = rec
+      rec.start()
+      setRecording(true)
+    } catch (e: any) {
+      alert('无法录音：' + (e?.message || '请允许麦克风权限'))
+    }
+  }
+
+  const stopRec = () => {
+    recorderRef.current?.stop()
+    setRecording(false)
+  }
+
+  const resetRec = () => {
+    audioBlobRef.current = null
+    setAudioUrl('')
+  }
+
+  const submitAudio = async () => {
+    const blob = audioBlobRef.current
+    if (!blob) return
+    setLoading(true)
+    try {
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      const ext = (blob.type.includes('mp4') || blob.type.includes('aac')) ? 'm4a' : 'webm'
+      const fileName = `proof-audio-${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
+      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/attachments/${fileName}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${SUPABASE_ANON}`,
+          apikey: SUPABASE_ANON,
+          'Content-Type': blob.type || 'audio/webm',
+          'x-upsert': 'true'
+        },
+        body: blob
+      })
+      if (!up.ok) throw new Error(`录音上传失败 (${up.status})`)
+      const url = `${SUPABASE_URL}/storage/v1/object/public/attachments/${fileName}`
+      const res = await fetch('/api/homework/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, proof_urls: [url] })
+      })
+      const json = await res.json().catch(() => ({ success: false, error: `HTTP ${res.status}` }))
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`)
+      setDone(true)
+      alert('录音提交成功！🎉')
+    } catch (e: any) {
+      alert('提交失败：' + e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -102,6 +178,45 @@ export default function CheckInButton({ id, isCompleted }: { id: string, isCompl
     return (
       <div className="w-full flex justify-center items-center bg-green-500 text-white py-2.5 px-4 rounded-lg text-sm font-bold shadow-sm h-full">
         ✅ 已完成
+      </div>
+    )
+  }
+
+  // 录音作业：录音提交（不走 AI 批改）
+  if (submitType === 'audio') {
+    return (
+      <div className="w-full">
+        {audioUrl && (
+          <div className="mb-2">
+            <audio controls src={audioUrl} className="w-full" />
+          </div>
+        )}
+        <div className="flex gap-2">
+          {!recording && !audioUrl && (
+            <button onClick={startRec} disabled={loading}
+              className="flex-1 py-2.5 px-3 rounded-lg text-sm font-bold bg-[#FFD600] text-blue-900 shadow-[0_4px_0_0_#E6B800] active:scale-95 transition-transform">
+              🎙️ 开始录音
+            </button>
+          )}
+          {recording && (
+            <button onClick={stopRec}
+              className="flex-1 py-2.5 px-3 rounded-lg text-sm font-bold bg-red-500 text-white shadow-[0_4px_0_0_#b91c1c] active:scale-95 transition-transform animate-pulse">
+              ⏹️ 停止录音
+            </button>
+          )}
+          {audioUrl && !recording && (
+            <>
+              <button onClick={resetRec} disabled={loading}
+                className="flex-1 py-2.5 px-3 rounded-lg text-sm font-bold bg-gray-200 text-gray-700 active:scale-95 transition-transform">
+                🔄 重录
+              </button>
+              <button onClick={submitAudio} disabled={loading}
+                className="flex-1 py-2.5 px-3 rounded-lg text-sm font-bold bg-green-500 text-white shadow-[0_4px_0_0_#16a34a] active:scale-95 transition-transform disabled:opacity-60">
+                {loading ? '上传中...' : '✅ 提交录音'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     )
   }
