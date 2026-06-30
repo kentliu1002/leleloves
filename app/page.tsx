@@ -36,6 +36,23 @@ function cleanMarkdown(text: string): string {
     .trim()
 }
 
+const toBJDate = (ts: string) =>
+  new Date(new Date(ts).getTime() + 8 * 3600_000).toISOString().slice(0, 10)
+
+function shiftBJDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00+08:00')
+  d.setDate(d.getDate() + days)
+  return toBJDate(d.toISOString())
+}
+
+function bjToday(): string {
+  return toBJDate(new Date().toISOString())
+}
+
+function bjDateObj(dateStr: string): Date {
+  return new Date(dateStr + 'T12:00:00+08:00')
+}
+
 export default function ChildDashboard() {
   const [allHomework, setAllHomework] = useState<any[]>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -45,12 +62,9 @@ export default function ChildDashboard() {
   const [localFeedback, setLocalFeedback] = useState<Record<string, string>>({})
   const [vocabStats, setVocabStats] = useState<{ masteredCount: number, todayStatus: { completed: boolean, newCount: number, reviewCount: number } } | null>(null)
   
-  // 📅 生成过去7天的日期数组
-  const last7Days = Array.from({length: 7}, (_, i) => {
-    const d = new Date(); 
-    d.setDate(d.getDate() - i);
-    return d.toLocaleDateString();
-  });
+  // 📅 生成过去7天的北京日期数组
+  const today = bjToday()
+  const last7Days = Array.from({length: 7}, (_, i) => shiftBJDate(today, -i));
   
   // 默认选中“今天”
   const [selectedDate, setSelectedDate] = useState(last7Days[0]);
@@ -191,10 +205,6 @@ export default function ChildDashboard() {
 
   const isTodaySelected = selectedDate === last7Days[0];
 
-  // 将 ISO 时间戳转为北京日期字符串 YYYY-MM-DD（用于窗口范围比较）
-  const toBJDate = (ts: string) =>
-    new Date(new Date(ts).getTime() + 8 * 3600_000).toISOString().slice(0, 10)
-
   // 今天所属的积分窗口（假期/周末时非空）
   const currentWindow = pointsData?.currentWindow ?? null
 
@@ -209,13 +219,11 @@ export default function ChildDashboard() {
         return d >= windowStart && d <= windowEnd
       })
     }
-    return allHomework.filter((item: any) =>
-      new Date(item.created_at).toLocaleDateString() === selectedDate
-    )
+    return allHomework.filter((item: any) => toBJDate(item.created_at) === selectedDate)
   })()
 
   // 动态计算顶部面板的显示信息
-  const displayDateObj = new Date(selectedDate);
+  const displayDateObj = bjDateObj(selectedDate);
   const displayDateStr = displayDateObj.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
 
   // 📋 今日得分规则（根据星期几+调休工作日动态生成）
@@ -683,7 +691,7 @@ export default function ChildDashboard() {
         <div className="date-strip">
           {last7Days.map((date, index) => {
             const isToday = index === 0
-            const d = new Date(date)
+            const d = bjDateObj(date)
             const wd = isToday ? 'Today' : d.toLocaleDateString('zh-CN', { weekday: 'short' })
             const md = isToday ? '今天' : `${d.getMonth() + 1}/${d.getDate()}`
             return (
