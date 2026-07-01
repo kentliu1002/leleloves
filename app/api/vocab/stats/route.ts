@@ -40,11 +40,24 @@ export async function GET() {
     // 最近 14 天每日完成情况
     const { data: dailies } = await supabase
       .from('vocab_daily').select('*').order('date', { ascending: false }).limit(14)
+    const dailyRows = dailies || []
+    const wordIds = [...new Set(dailyRows.flatMap(d => [
+      ...(d.new_word_ids || []),
+      ...(d.review_word_ids || [])
+    ]))]
+    const { data: words } = await supabase
+      .from('vocabulary')
+      .select('id,word,meaning_zh,topic')
+      .in('id', wordIds.length > 0 ? wordIds : [-1])
+    const wordMap = new Map((words || []).map(w => [w.id, w]))
+
     const recentDays = (dailies || []).map(d => ({
       date: d.date,
       completed: !!d.completed_at,
       newCount: (d.new_word_ids || []).length,
-      reviewCount: (d.review_word_ids || []).length
+      reviewCount: (d.review_word_ids || []).length,
+      newWords: (d.new_word_ids || []).map((id: number) => wordMap.get(id)).filter(Boolean),
+      reviewWords: (d.review_word_ids || []).map((id: number) => wordMap.get(id)).filter(Boolean)
     }))
 
     // 今日状态
@@ -53,7 +66,9 @@ export async function GET() {
     const todayStatus = todayRow ? {
       newCount: (todayRow.new_word_ids || []).length,
       reviewCount: (todayRow.review_word_ids || []).length,
-      completed: !!todayRow.completed_at
+      completed: !!todayRow.completed_at,
+      newWords: (todayRow.new_word_ids || []).map((id: number) => wordMap.get(id)).filter(Boolean),
+      reviewWords: (todayRow.review_word_ids || []).map((id: number) => wordMap.get(id)).filter(Boolean)
     } : { newCount: 0, reviewCount: 0, completed: false }
 
     return NextResponse.json({
