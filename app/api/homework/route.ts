@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import pdf from 'pdf-parse';
+import { ensureTodayRecurringHomework } from '../../../lib/recurring-homework.js';
 
 // 1. 核心防线：强制声明为 nodejs 环境，确保 pdf-parse 兼容性，预防 405 错误
 export const runtime = 'nodejs';
@@ -17,30 +18,6 @@ const svc = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-// 假期固定作业：今天若在某模板日期段内且星期匹配，则生成为当日 homework（按 recurring_id+当天去重）
-async function generateTodayRecurring() {
-  const bjNow = new Date(Date.now() + 8 * 3600_000);
-  const today = bjNow.toISOString().slice(0, 10);
-  const weekday = bjNow.getUTCDay(); // 0=周日 … 6=周六（北京）
-  const { data: tpls } = await svc
-    .from('recurring_homework').select('*')
-    .eq('enabled', true).lte('start_date', today).gte('end_date', today);
-  if (!tpls || tpls.length === 0) return;
-  const todayStart = `${today}T00:00:00+08:00`;
-  for (const t of tpls) {
-    if (!Array.isArray(t.weekdays) || !t.weekdays.includes(weekday)) continue;
-    const { count } = await svc
-      .from('homework').select('*', { count: 'exact', head: true })
-      .eq('recurring_id', t.id).gte('created_at', todayStart);
-    if ((count || 0) > 0) continue;
-    const content = t.note ? `${t.subject}：${t.note}` : t.subject;
-    await svc.from('homework').insert({
-      content, subject: t.subject, is_completed: false,
-      recurring_id: t.id, submit_type: t.submit_type || 'photo'
-    });
-  }
-}
 
 /**
  * 🤖 AI 识别引擎 (百炼 Coding Plan 套餐模式)
@@ -202,7 +179,7 @@ export async function POST(request: Request) {
 // ==========================================
 export async function GET(request: Request) {
   try {
-    try { await generateTodayRecurring(); } catch (e) { console.error('生成固定作业失败:', e); }
+    try { await ensureTodayRecurringHomework(svc); } catch (e) { console.error('生成固定作业失败:', e); }
     const { data, error } = await supabase
       .from('homework')
       .select('*')

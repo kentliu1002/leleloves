@@ -1,13 +1,16 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
+import { ensureTodayRecurringHomework } from './recurring-homework.js'
 
 // 初始化 Supabase 客户端
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_ANON_KEY!
 const supabase = createClient(supabaseUrl, supabaseKey)
+const serviceSupabase = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // 1. 获取所有作业
 export async function getHomework() {
+  try { await ensureTodayRecurringHomework(serviceSupabase) } catch (e) { console.error('生成固定作业失败:', e) }
   const { data, error } = await supabase
     .from('homework')
     .select('*')
