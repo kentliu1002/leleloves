@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import pdf from 'pdf-parse';
 import { ensureTodayRecurringHomework } from '../../../lib/recurring-homework.js';
+import { findRecentDuplicate, storageNames } from '../../../lib/homework-dedup.mjs';
 
 // 1. 核心防线：强制声明为 nodejs 环境，确保 pdf-parse 兼容性，预防 405 错误
 export const runtime = 'nodejs';
@@ -101,6 +102,26 @@ export async function POST(request: Request) {
     const { filename, file_url, file_urls } = body;
     let content = body.content || '';
     let extractedText = '';
+
+    // 微信端等待识别时可能再次提交：两分钟内相同原文件名（或纯文字内容）只创建一次。
+    const recentSince = new Date(Date.now() - 2 * 60_000).toISOString();
+    const { data: recentRows, error: recentError } = await svc
+      .from('homework')
+      .select('id, content, subject, file_urls')
+      .gte('created_at', recentSince)
+      .order('created_at', { ascending: false });
+    if (recentError) throw recentError;
+    const duplicate = findRecentDuplicate(recentRows || [], { filename, content });
+    if (duplicate) {
+      const uploadedNames = storageNames(file_urls);
+      if (uploadedNames.length > 0) await svc.storage.from('attachments').remove(uploadedNames);
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        subject: duplicate.subject,
+        finalName: duplicate.content
+      });
+    }
 
     // 根据实际 URL 后缀纠正 file_type（防止客户端传错）
     let file_type = body.file_type as string;
