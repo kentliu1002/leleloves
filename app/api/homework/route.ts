@@ -6,11 +6,6 @@ import { ensureTodayRecurringHomework } from '../../../lib/recurring-homework.js
 // 1. 核心防线：强制声明为 nodejs 环境，确保 pdf-parse 兼容性，预防 405 错误
 export const runtime = 'nodejs';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-  process.env.SUPABASE_ANON_KEY!
-);
-
 const ARK_API_KEY = process.env.ARK_API_KEY;
 
 // service_role 客户端：读取开启了 RLS 的 recurring_homework，并生成当日固定作业
@@ -141,7 +136,7 @@ export async function POST(request: Request) {
       const cnTime = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
       const todayStr = cnTime.toISOString().split('T')[0];
       
-      const { count } = await supabase
+      const { count } = await svc
         .from('homework')
         .select('*', { count: 'exact', head: true })
         .eq('subject', aiSubject)
@@ -151,7 +146,7 @@ export async function POST(request: Request) {
     }
 
     // D. 写入数据库
-    const { error: insertError } = await supabase.from('homework').insert([{
+    const { error: insertError } = await svc.from('homework').insert([{
       content: content,
       subject: aiSubject,
       file_url: file_url,
@@ -203,7 +198,7 @@ export async function DELETE(request: Request) {
     const id = url.searchParams.get('id');
     if (!id) throw new Error('缺少要删除的作业 ID');
 
-    const { error } = await supabase
+    const { error } = await svc
       .from('homework')
       .delete()
       .eq('id', id);
