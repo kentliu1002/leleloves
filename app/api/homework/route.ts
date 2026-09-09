@@ -180,7 +180,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     try { await ensureTodayRecurringHomework(svc); } catch (e) { console.error('生成固定作业失败:', e); }
-    const { data, error } = await supabase
+    const { data, error } = await svc
       .from('homework')
       .select('*')
       .order('created_at', { ascending: false })

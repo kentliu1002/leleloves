@@ -11,7 +11,7 @@ const serviceSupabase = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_R
 // 1. 获取所有作业
 export async function getHomework() {
   try { await ensureTodayRecurringHomework(serviceSupabase) } catch (e) { console.error('生成固定作业失败:', e) }
-  const { data, error } = await supabase
+  const { data, error } = await serviceSupabase
     .from('homework')
     .select('*')
     .order('created_at', { ascending: false })

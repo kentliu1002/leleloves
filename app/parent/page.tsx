@@ -41,8 +41,9 @@ export default function ParentPage() {
   const [selectedDate, setSelectedDate] = useState(last7Days[0]);
 
   const fetchHomework = async () => {
-    const { data } = await supabase.from('homework').select('*').order('created_at',{ascending:false});
-    setHomeworkList(data||[]); setSelectedIds([]);
+    const res = await fetch('/api/homework', { cache: 'no-store' });
+    const result = await res.json();
+    setHomeworkList(result.data||[]); setSelectedIds([]);
   };
   useEffect(()=>{ fetchHomework(); },[]);
 
