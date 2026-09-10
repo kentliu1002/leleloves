@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import pdf from 'pdf-parse';
 import { ensureTodayRecurringHomework } from '../../../lib/recurring-homework.js';
-import { findRecentDuplicate, storageNames } from '../../../lib/homework-dedup.mjs';
+import { findRecentDuplicate, storageNames, submissionId } from '../../../lib/homework-dedup.mjs';
 
 // 1. 核心防线：强制声明为 nodejs 环境，确保 pdf-parse 兼容性，预防 405 错误
 export const runtime = 'nodejs';
@@ -102,6 +102,8 @@ export async function POST(request: Request) {
     const { filename, file_url, file_urls } = body;
     let content = body.content || '';
     let extractedText = '';
+    const cnDate = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const id = submissionId({ filename, content, date: cnDate });
 
     // 微信端等待识别时可能再次提交：两分钟内相同原文件名（或纯文字内容）只创建一次。
     const recentSince = new Date(Date.now() - 2 * 60_000).toISOString();
@@ -168,6 +170,7 @@ export async function POST(request: Request) {
 
     // D. 写入数据库
     const { error: insertError } = await svc.from('homework').insert([{
+      id,
       content: content,
       subject: aiSubject,
       file_url: file_url,
@@ -176,6 +179,17 @@ export async function POST(request: Request) {
       is_completed: false
     }]);
 
+    if (insertError?.code === '23505') {
+      const uploadedNames = storageNames(file_urls);
+      if (uploadedNames.length > 0) await svc.storage.from('attachments').remove(uploadedNames);
+      const { data: existing } = await svc.from('homework').select('content, subject').eq('id', id).single();
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        subject: existing?.subject || aiSubject,
+        finalName: existing?.content || content
+      });
+    }
     if (insertError) throw insertError;
 
     return NextResponse.json({ 
