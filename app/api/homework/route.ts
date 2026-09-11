@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import pdf from 'pdf-parse';
+import { recognizeSubject } from '../../../lib/homework-subject.mjs';
 import { ensureTodayRecurringHomework } from '../../../lib/recurring-homework.js';
 import { findRecentDuplicate, storageNames, submissionId } from '../../../lib/homework-dedup.mjs';
 
@@ -14,84 +15,6 @@ const svc = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-/**
- * 🤖 AI 识别引擎 (百炼 Coding Plan 套餐模式)
- * 模型：doubao-seed-2.0-pro（火山方舟 coding）
- */
-const VALID_SUBJECTS = ["语文", "数学", "英语", "科学", "历史", "地理", "政治"];
-
-function matchSubjectFromText(text: string): string {
-  for (const s of VALID_SUBJECTS) {
-    if (text.includes(s)) return s;
-  }
-  return '其它';
-}
-
-async function analyzeHomeworkAI(params: { text?: string, filename?: string, imageUrl?: string }) {
-  if (!ARK_API_KEY) return matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
-
-  // 豆包国内拉海外 Supabase 图常超时，先下载转 base64 内联
-  let dataUrl: string | null = null;
-  if (params.imageUrl) {
-    try {
-      const r = await fetch(params.imageUrl);
-      if (r.ok) {
-        const buf = Buffer.from(await r.arrayBuffer());
-        const mime = r.headers.get('content-type') || 'image/jpeg';
-        dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
-      }
-    } catch { dataUrl = null; }
-  }
-  const isVision = !!dataUrl;
-
-  let messageContent: any;
-  if (isVision) {
-    messageContent = [
-      {
-        type: "text",
-        text: `请判断下面这张作业图片属于哪个学科（只能从以下选项中选一个输出：语文、数学、英语、科学、历史、地理、政治、其它）。文件名参考：${params.filename || ''}。只输出学科名，不要其他文字。`
-      },
-      { type: "image_url", image_url: { url: dataUrl } }
-    ];
-  } else {
-    messageContent = `/no_think 判断作业学科（只输出：语文/数学/英语/科学/历史/地理/政治/其它 之一）。文件名: ${params.filename || '无'}, 内容: ${params.text || '无'}。`;
-  }
-
-  try {
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${ARK_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'doubao-seed-2.0-pro',
-        messages: [{ role: 'user', content: messageContent }]
-      })
-    });
-
-    const data = await response.json();
-    const resultText = data.choices?.[0]?.message?.content || '';
-    console.log(`[AI科目识别] 模式:${isVision?'视觉':'文本'} 结果:"${resultText.trim()}"`);
-
-    const aiResult = matchSubjectFromText(resultText);
-
-    // 视觉识别返回其它时，用文件名/内容做文本兜底
-    if (aiResult === '其它') {
-      const textFallback = matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
-      if (textFallback !== '其它') {
-        console.log(`[AI科目识别] 视觉识别为其它，文本兜底结果: ${textFallback}`);
-        return textFallback;
-      }
-    }
-    return aiResult;
-  } catch (error) {
-    console.error("AI 识别失败:", error);
-    // 异常时也用文本兜底
-    return matchSubjectFromText(`${params.filename || ''} ${params.text || ''}`);
-  }
-}
 
 // ==========================================
 // 🚀 POST: 处理作业上传与 AI 识别
@@ -147,7 +70,8 @@ export async function POST(request: Request) {
     }
 
     // B. 调用 AI 分析
-    const aiSubject = await analyzeHomeworkAI({
+    const aiSubject = await recognizeSubject({
+      apiKey: ARK_API_KEY,
       text: extractedText || content,
       filename: filename,
       imageUrl: file_type === 'image' ? file_url : undefined
