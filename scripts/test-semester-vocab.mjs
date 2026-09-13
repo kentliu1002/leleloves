@@ -22,3 +22,10 @@ console.log('semester scheduling tests passed')
 // With Unit 1 covered, the first six Unit 2 words fill the new-word slots on Monday.
 const monday=selectSemesterWords(words,[{word_id:1,correct:true,date:'2026-09-13'},{word_id:2,correct:true,date:'2026-09-13'}],[4],'2026-09-14',10,()=>0)
 assert.deepEqual(monday.newWords.map(w=>w.id),[3])
+// Even with adversarial shuffle, the current unit precedes the previous unit and old vocabulary.
+const allPassed=words.map(w=>({word_id:w.id,correct:true,date:'2026-09-13'}))
+const ranked=selectSemesterWords(words,allPassed,[4],'2026-09-14',4,()=>0)
+assert.equal(ranked.reviewWords[0].word,'wash')
+assert.deepEqual(new Set(ranked.reviewWords.slice(1,3).map(w=>w.word)),new Set(['sport','jump']))
+assert.equal(ranked.reviewWords[3].word,'apple')
+assert.deepEqual(selectSemesterWords(words,allPassed,[4],'2026-09-14',1,()=>0).reviewWords.map(w=>w.word),['wash'])
