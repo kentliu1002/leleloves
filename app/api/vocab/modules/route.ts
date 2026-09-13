@@ -17,8 +17,14 @@ export async function GET() {
       .order('sort_order', { ascending: true })
     if (modErr) throw modErr
 
-    const { data: links } = await supabase
-      .from('vocab_module_words').select('module_id')
+    const links: { module_id: number }[] = []
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase.from('vocab_module_words')
+        .select('module_id,word_id').order('module_id').order('word_id').range(offset, offset + 999)
+      if (error) throw error
+      links.push(...(data || []))
+      if (!data || data.length < 1000) break
+    }
     const countByMod: Record<number, number> = {}
     ;(links || []).forEach(l => {
       countByMod[l.module_id] = (countByMod[l.module_id] || 0) + 1
