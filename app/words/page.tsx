@@ -46,8 +46,8 @@ export default function WordsPage() {
       setReviewWords(d.reviewWords || [])
       if (typeof d.extraGroupsToday === 'number') setExtraGroupsToday(d.extraGroupsToday)
       if (d.completedToday) { setPhase('done'); return }
-      if ((d.reviewWords || []).length > 0) setPhase('reviewQuiz')
-      else if ((d.newWords || []).length > 0) setPhase('newStudy')
+      if ((d.newWords || []).length > 0) setPhase('newStudy')
+      else if ((d.reviewWords || []).length > 0) setPhase('reviewQuiz')
       else { setPhase('done') }
     }).catch(() => setPhase('done'))
   }, [])
@@ -127,10 +127,10 @@ export default function WordsPage() {
       } else {
         // 当前阶段结束
         if (phase === 'reviewQuiz') {
-          if (newWords.length > 0) { setPhase('newStudy'); setStudyIdx(0); setIdx(0) }
-          else { await finishGroup() }
-        } else if (phase === 'newQuiz') {
           await finishGroup()
+        } else if (phase === 'newQuiz') {
+          if (reviewWords.length > 0) { setPhase('reviewQuiz'); setIdx(0) }
+          else { await finishGroup() }
         }
       }
     } else {
@@ -185,8 +185,8 @@ export default function WordsPage() {
       setExamples({})
       setIdx(0); setStudyIdx(0); setInput(''); setWrong(false); setAttemptNo(1)
       setIsExtra(true)
-      if ((d.reviewWords || []).length > 0) setPhase('reviewQuiz')
-      else if ((d.newWords || []).length > 0) setPhase('newStudy')
+      if ((d.newWords || []).length > 0) setPhase('newStudy')
+      else if ((d.reviewWords || []).length > 0) setPhase('reviewQuiz')
       else setPhase('done')
     } catch {}
     setStartingExtra(false)

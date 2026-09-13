@@ -1,0 +1,698 @@
+{
+  "book": "4上（2026秋）",
+  "topic": "2026秋课本",
+  "anchorDate": "2026-09-13",
+  "units": [
+    {
+      "unit": 1,
+      "words": [
+        {
+          "word": "sport",
+          "meaning_zh": "体育运动"
+        },
+        {
+          "word": "jump",
+          "meaning_zh": "跳"
+        },
+        {
+          "word": "high",
+          "meaning_zh": "高高地"
+        },
+        {
+          "word": "far",
+          "meaning_zh": "远"
+        },
+        {
+          "word": "ping-pong",
+          "meaning_zh": "乒乓球运动"
+        },
+        {
+          "word": "volleyball",
+          "meaning_zh": "排球（运动）"
+        },
+        {
+          "word": "across",
+          "meaning_zh": "从一边到另一边；穿过，越过"
+        },
+        {
+          "word": "hope",
+          "meaning_zh": "希望"
+        },
+        {
+          "word": "lose",
+          "meaning_zh": "失去"
+        },
+        {
+          "word": "because",
+          "meaning_zh": "因为"
+        },
+        {
+          "word": "because of sb / sth",
+          "meaning_zh": "因为某人／某事物"
+        },
+        {
+          "word": "cancer",
+          "meaning_zh": "癌（症）"
+        },
+        {
+          "word": "other",
+          "meaning_zh": "别的，另外的，其他的"
+        },
+        {
+          "word": "money",
+          "meaning_zh": "钱"
+        },
+        {
+          "word": "hard",
+          "meaning_zh": "困难的"
+        },
+        {
+          "word": "kind",
+          "meaning_zh": "亲切的；友好的；善良的"
+        },
+        {
+          "word": "keep",
+          "meaning_zh": "持续；继续"
+        },
+        {
+          "word": "month",
+          "meaning_zh": "一个月"
+        },
+        {
+          "word": "ill",
+          "meaning_zh": "生病的"
+        },
+        {
+          "word": "anymore",
+          "meaning_zh": "（不）再"
+        },
+        {
+          "word": "year",
+          "meaning_zh": "年；年度"
+        },
+        {
+          "word": "remember",
+          "meaning_zh": "纪念；记住"
+        },
+        {
+          "word": "fail",
+          "meaning_zh": "失败"
+        },
+        {
+          "word": "give",
+          "meaning_zh": "给予"
+        },
+        {
+          "word": "give up",
+          "meaning_zh": "放弃"
+        },
+        {
+          "word": "never",
+          "meaning_zh": "决不，永不"
+        },
+        {
+          "word": "try",
+          "meaning_zh": "努力；尝试"
+        },
+        {
+          "word": "try your best",
+          "meaning_zh": "尽最大努力"
+        },
+        {
+          "word": "star",
+          "meaning_zh": "明星，最出色者"
+        },
+        {
+          "word": "ability",
+          "meaning_zh": "才能；能力"
+        },
+        {
+          "word": "player",
+          "meaning_zh": "运动员，选手；球员"
+        }
+      ]
+    },
+    {
+      "unit": 2,
+      "words": [
+        {
+          "word": "phew",
+          "meaning_zh": "啊，哟，唉"
+        },
+        {
+          "word": "wash",
+          "meaning_zh": "洗"
+        },
+        {
+          "word": "dish",
+          "meaning_zh": "盘子，碟子"
+        },
+        {
+          "word": "feed",
+          "meaning_zh": "喂养，给……食物"
+        },
+        {
+          "word": "sweep",
+          "meaning_zh": "扫，打扫，清扫"
+        },
+        {
+          "word": "floor",
+          "meaning_zh": "地板，地面"
+        },
+        {
+          "word": "rubbish",
+          "meaning_zh": "垃圾"
+        },
+        {
+          "word": "chore",
+          "meaning_zh": "家庭杂务"
+        },
+        {
+          "word": "to-do list",
+          "meaning_zh": "待办清单"
+        },
+        {
+          "word": "Mr",
+          "meaning_zh": "先生"
+        },
+        {
+          "word": "may",
+          "meaning_zh": "可以（表示允许某人做某事）"
+        },
+        {
+          "word": "outside",
+          "meaning_zh": "在室外，在外面"
+        },
+        {
+          "word": "tidy",
+          "meaning_zh": "整理，收拾；整洁的，整齐的"
+        },
+        {
+          "word": "easy",
+          "meaning_zh": "容易的"
+        },
+        {
+          "word": "clean",
+          "meaning_zh": "（把……）弄干净，（使）清洁"
+        },
+        {
+          "word": "woof",
+          "meaning_zh": "汪汪（形容狗叫声）"
+        },
+        {
+          "word": "job",
+          "meaning_zh": "任务，事情"
+        },
+        {
+          "word": "Good job!",
+          "meaning_zh": "干得好！真不错！"
+        },
+        {
+          "word": "dirty",
+          "meaning_zh": "脏的"
+        },
+        {
+          "word": "desk",
+          "meaning_zh": "书桌，写字台"
+        },
+        {
+          "word": "wall",
+          "meaning_zh": "墙"
+        },
+        {
+          "word": "again",
+          "meaning_zh": "又，再一次"
+        },
+        {
+          "word": "also",
+          "meaning_zh": "除此之外，还"
+        },
+        {
+          "word": "sunshine",
+          "meaning_zh": "阳光"
+        },
+        {
+          "word": "must",
+          "meaning_zh": "应该"
+        },
+        {
+          "word": "sometimes",
+          "meaning_zh": "有时"
+        },
+        {
+          "word": "feel",
+          "meaning_zh": "感受到，觉得"
+        },
+        {
+          "word": "tired",
+          "meaning_zh": "疲惫的，累的"
+        },
+        {
+          "word": "helpful",
+          "meaning_zh": "乐于助人的"
+        },
+        {
+          "word": "warm",
+          "meaning_zh": "（使）温暖起来"
+        },
+        {
+          "word": "warm up",
+          "meaning_zh": "（使）变暖"
+        },
+        {
+          "word": "house",
+          "meaning_zh": "房屋，房子"
+        },
+        {
+          "word": "water",
+          "meaning_zh": "给……浇水"
+        },
+        {
+          "word": "yard",
+          "meaning_zh": "庭院"
+        },
+        {
+          "word": "helper",
+          "meaning_zh": "帮手；助手"
+        },
+        {
+          "word": "pick",
+          "meaning_zh": "采，摘"
+        },
+        {
+          "word": "pig",
+          "meaning_zh": "猪"
+        },
+        {
+          "word": "cow",
+          "meaning_zh": "奶牛"
+        },
+        {
+          "word": "cut",
+          "meaning_zh": "修剪"
+        },
+        {
+          "word": "grass",
+          "meaning_zh": "草地；草，青草"
+        }
+      ]
+    },
+    {
+      "unit": 3,
+      "words": [
+        {
+          "word": "weather",
+          "meaning_zh": "天气"
+        },
+        {
+          "word": "sunny",
+          "meaning_zh": "阳光充足的"
+        },
+        {
+          "word": "cloud",
+          "meaning_zh": "云"
+        },
+        {
+          "word": "by",
+          "meaning_zh": "经过"
+        },
+        {
+          "word": "cloudy",
+          "meaning_zh": "多云的，阴天的"
+        },
+        {
+          "word": "wind",
+          "meaning_zh": "风"
+        },
+        {
+          "word": "blow",
+          "meaning_zh": "吹，刮"
+        },
+        {
+          "word": "windy",
+          "meaning_zh": "风大的；多风的"
+        },
+        {
+          "word": "rain",
+          "meaning_zh": "雨"
+        },
+        {
+          "word": "rainy",
+          "meaning_zh": "多雨的"
+        },
+        {
+          "word": "snow",
+          "meaning_zh": "雪"
+        },
+        {
+          "word": "any",
+          "meaning_zh": "任何一个"
+        },
+        {
+          "word": "cold",
+          "meaning_zh": "冷的，寒冷的"
+        },
+        {
+          "word": "or",
+          "meaning_zh": "或者"
+        },
+        {
+          "word": "enjoy",
+          "meaning_zh": "享受……的乐趣"
+        },
+        {
+          "word": "diary",
+          "meaning_zh": "日记"
+        },
+        {
+          "word": "teacher",
+          "meaning_zh": "教师，老师"
+        },
+        {
+          "word": "taste",
+          "meaning_zh": "有……的味道"
+        },
+        {
+          "word": "ice cream",
+          "meaning_zh": "冰激凌，雪糕"
+        },
+        {
+          "word": "real",
+          "meaning_zh": "真的，真正的"
+        },
+        {
+          "word": "later",
+          "meaning_zh": "之后"
+        },
+        {
+          "word": "December",
+          "meaning_zh": "十二月"
+        },
+        {
+          "word": "coat",
+          "meaning_zh": "外套"
+        },
+        {
+          "word": "turn",
+          "meaning_zh": "转身；转动"
+        },
+        {
+          "word": "turn on",
+          "meaning_zh": "打开"
+        },
+        {
+          "word": "TV",
+          "meaning_zh": "电视"
+        },
+        {
+          "word": "report",
+          "meaning_zh": "报道"
+        }
+      ]
+    },
+    {
+      "unit": 4,
+      "words": [
+        {
+          "word": "wonderful",
+          "meaning_zh": "令人惊叹的，奇妙的"
+        },
+        {
+          "word": "season",
+          "meaning_zh": "季节"
+        },
+        {
+          "word": "spring",
+          "meaning_zh": "春天，春季"
+        },
+        {
+          "word": "summer",
+          "meaning_zh": "夏天，夏季"
+        },
+        {
+          "word": "autumn",
+          "meaning_zh": "秋天，秋季"
+        },
+        {
+          "word": "winter",
+          "meaning_zh": "冬天，冬季"
+        },
+        {
+          "word": "favourite",
+          "meaning_zh": "最喜欢的"
+        },
+        {
+          "word": "birthday",
+          "meaning_zh": "生日"
+        },
+        {
+          "word": "fly",
+          "meaning_zh": "放飞"
+        },
+        {
+          "word": "happen",
+          "meaning_zh": "发生"
+        },
+        {
+          "word": "snowstorm",
+          "meaning_zh": "雪暴，暴风雪"
+        },
+        {
+          "word": "wait",
+          "meaning_zh": "等，等候"
+        },
+        {
+          "word": "beach",
+          "meaning_zh": "海滩，沙滩"
+        },
+        {
+          "word": "sea",
+          "meaning_zh": "海，海洋"
+        },
+        {
+          "word": "equator",
+          "meaning_zh": "赤道"
+        },
+        {
+          "word": "round",
+          "meaning_zh": "循环地，周而复始地"
+        },
+        {
+          "word": "all year round",
+          "meaning_zh": "全年"
+        },
+        {
+          "word": "quite",
+          "meaning_zh": "非常，十分"
+        },
+        {
+          "word": "join",
+          "meaning_zh": "参与，加入"
+        }
+      ]
+    },
+    {
+      "unit": 5,
+      "words": [
+        {
+          "word": "bus",
+          "meaning_zh": "公交车，公共汽车"
+        },
+        {
+          "word": "car",
+          "meaning_zh": "汽车"
+        },
+        {
+          "word": "train",
+          "meaning_zh": "火车，列车"
+        },
+        {
+          "word": "city",
+          "meaning_zh": "城市"
+        },
+        {
+          "word": "town",
+          "meaning_zh": "镇，城镇"
+        },
+        {
+          "word": "ship",
+          "meaning_zh": "大船"
+        },
+        {
+          "word": "plane",
+          "meaning_zh": "飞机"
+        },
+        {
+          "word": "sky",
+          "meaning_zh": "天，天空"
+        },
+        {
+          "word": "place",
+          "meaning_zh": "地方，地点"
+        },
+        {
+          "word": "near",
+          "meaning_zh": "（距离）近的"
+        },
+        {
+          "word": "travel",
+          "meaning_zh": "旅行"
+        },
+        {
+          "word": "way",
+          "meaning_zh": "方式"
+        },
+        {
+          "word": "picnic",
+          "meaning_zh": "野餐"
+        },
+        {
+          "word": "minute",
+          "meaning_zh": "分钟"
+        },
+        {
+          "word": "wear",
+          "meaning_zh": "穿；戴"
+        },
+        {
+          "word": "live",
+          "meaning_zh": "住，居住"
+        },
+        {
+          "word": "away",
+          "meaning_zh": "离开，相距"
+        },
+        {
+          "word": "truck",
+          "meaning_zh": "货车，卡车"
+        },
+        {
+          "word": "bamboo",
+          "meaning_zh": "竹，竹子"
+        },
+        {
+          "word": "bike",
+          "meaning_zh": "自行车"
+        },
+        {
+          "word": "ring",
+          "meaning_zh": "（钟、铃）鸣响"
+        },
+        {
+          "word": "beep",
+          "meaning_zh": "（使）（汽车喇叭）鸣响"
+        },
+        {
+          "word": "subway",
+          "meaning_zh": "地铁"
+        },
+        {
+          "word": "whoosh",
+          "meaning_zh": "（呼呼地）飞快移动"
+        },
+        {
+          "word": "tram",
+          "meaning_zh": "有轨电车"
+        },
+        {
+          "word": "chug",
+          "meaning_zh": "（汽车、火车等）突突地缓慢前进"
+        }
+      ]
+    },
+    {
+      "unit": 6,
+      "words": [
+        {
+          "word": "wheel",
+          "meaning_zh": "车轮"
+        },
+        {
+          "word": "left",
+          "meaning_zh": "向左，朝左"
+        },
+        {
+          "word": "straight",
+          "meaning_zh": "笔直地"
+        },
+        {
+          "word": "library",
+          "meaning_zh": "图书室；图书馆"
+        },
+        {
+          "word": "centre",
+          "meaning_zh": "中心"
+        },
+        {
+          "word": "cinema",
+          "meaning_zh": "电影院"
+        },
+        {
+          "word": "hospital",
+          "meaning_zh": "医院"
+        },
+        {
+          "word": "supermarket",
+          "meaning_zh": "超市"
+        },
+        {
+          "word": "museum",
+          "meaning_zh": "博物馆，博物院"
+        },
+        {
+          "word": "tomorrow",
+          "meaning_zh": "（在）明天"
+        },
+        {
+          "word": "woman",
+          "meaning_zh": "成年女子，妇女"
+        },
+        {
+          "word": "wish",
+          "meaning_zh": "愿望"
+        },
+        {
+          "word": "step",
+          "meaning_zh": "步；一步（的距离）"
+        },
+        {
+          "word": "own",
+          "meaning_zh": "自己的"
+        },
+        {
+          "word": "on one's own",
+          "meaning_zh": "独立地"
+        },
+        {
+          "word": "walk",
+          "meaning_zh": "走，行走"
+        },
+        {
+          "word": "cross",
+          "meaning_zh": "横穿"
+        },
+        {
+          "word": "careful",
+          "meaning_zh": "谨慎的"
+        },
+        {
+          "word": "be careful",
+          "meaning_zh": "当心，小心"
+        },
+        {
+          "word": "girl",
+          "meaning_zh": "女孩；女儿"
+        },
+        {
+          "word": "underground",
+          "meaning_zh": "在地（面）下"
+        },
+        {
+          "word": "aunt",
+          "meaning_zh": "姑母；姨母"
+        }
+      ]
+    }
+  ],
+  "nextUnitStart": "2026-09-14"
+}

@@ -1,3 +1,4 @@
+import { getSemesterGroup } from '../../../../lib/semester-vocab.mjs'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -12,15 +13,6 @@ const supabase = createClient(
 // 北京日期 YYYY-MM-DD
 function bjToday(): string {
   return new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
 }
 
 export async function GET() {
@@ -50,77 +42,7 @@ export async function GET() {
       })
     }
 
-    // 2. 创建新 session
-    const { data: settings } = await supabase
-      .from('vocab_settings').select('enabled_topics, enabled_modules').eq('id', 1).single()
-    const enabledTopics: string[] = settings?.enabled_topics || []
-    const enabledModules: string[] = settings?.enabled_modules || []
-
-    if (enabledTopics.length === 0 && enabledModules.length === 0) {
-      return NextResponse.json({
-        date: today, newWords: [], reviewWords: [], completedToday: false,
-        warning: '尚未设置考查范围，请家长在小程序"单词"页选择主题或教材 Module'
-      })
-    }
-
-    // 合并候选 word id：topic 范围 ∪ module 范围
-    const candidateIdSet = new Set<number>()
-
-    if (enabledTopics.length > 0) {
-      const { data: topicWords } = await supabase
-        .from('vocabulary').select('id').in('topic', enabledTopics)
-      ;(topicWords || []).forEach(w => candidateIdSet.add(w.id))
-    }
-
-    if (enabledModules.length > 0) {
-      // enabled_modules 格式可能是 '3上.M1' (老版) 或 '3下.Unit 1' (新版)
-      // 拆 book + label：以最后一个 '.' 为分隔
-      const moduleConditions = enabledModules.map(k => {
-        const idx = k.indexOf('.')
-        if (idx < 0) return null
-        return { book: k.substring(0, idx), label: k.substring(idx + 1) }
-      }).filter(Boolean) as { book: string, label: string }[]
-
-      if (moduleConditions.length > 0) {
-        const books = [...new Set(moduleConditions.map(c => c.book))]
-        const { data: modRows } = await supabase
-          .from('textbook_modules').select('id, book, module_no, unit_label').in('book', books)
-        const moduleIds = (modRows || [])
-          .filter(m => moduleConditions.some(c =>
-            c.book === m.book && (c.label === (m.unit_label || `M${m.module_no}`))
-          ))
-          .map(m => m.id)
-        if (moduleIds.length > 0) {
-          const { data: links } = await supabase
-            .from('vocab_module_words').select('word_id').in('module_id', moduleIds)
-          ;(links || []).forEach(l => candidateIdSet.add(l.word_id))
-        }
-      }
-    }
-
-    const candidateIds = [...candidateIdSet]
-
-    // 选 5 个新词：候选中且从未在 vocab_attempts 出现
-    const { data: attemptedIds } = await supabase
-      .from('vocab_attempts').select('word_id')
-    const seenIds = new Set((attemptedIds || []).map(r => r.word_id))
-    const unseenIds = candidateIds.filter(id => !seenIds.has(id))
-
-    let candidateWords: any[] = []
-    if (unseenIds.length > 0) {
-      const { data } = await supabase.from('vocabulary').select('*').in('id', unseenIds)
-      candidateWords = data || []
-    }
-    const newWords = shuffle(candidateWords).slice(0, 5)
-
-    // 选 5 个复习词：有过 correct=true 的
-    const { data: correctAttempts } = await supabase
-      .from('vocab_attempts').select('word_id').eq('correct', true)
-    const masteredIds = [...new Set((correctAttempts || []).map(r => r.word_id))]
-    const reviewPool = masteredIds.length > 0
-      ? (await supabase.from('vocabulary').select('*').in('id', masteredIds)).data || []
-      : []
-    const reviewWords = shuffle(reviewPool).slice(0, 5)
+    const { newWords, reviewWords } = await getSemesterGroup(supabase, today)
 
     // 写入 vocab_daily
     await supabase.from('vocab_daily').insert({

@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict'
+import { availableSemesterWords, selectSemesterWords } from '../lib/semester-vocab.mjs'
+assert.equal(availableSemesterWords('2026-09-13').length, 31)
+assert.equal(availableSemesterWords('2026-09-14').length, 37)
+assert.equal(availableSemesterWords('2026-09-20').length, 71)
+assert.equal(availableSemesterWords('2026-09-21').length, 75)
+assert.equal(availableSemesterWords('2026-10-18').length, 165)
+const counts = Array.from({length:7}, (_,i) => availableSemesterWords(`2026-09-${14+i}`).length - availableSemesterWords(`2026-09-${13+i}`).length)
+assert.deepEqual(counts, [6,6,6,5,6,6,5])
+const words=[{id:1,word:'sport',topic:'2026秋课本'},{id:2,word:'jump',topic:'2026秋课本'},{id:3,word:'wash',topic:'2026秋课本'},{id:4,word:'apple',topic:'旧词'}]
+let picked=selectSemesterWords(words,[],[4],'2026-09-13',2,()=>0)
+assert.deepEqual(picked.newWords.map(w=>w.id),[1,2])
+assert.equal(picked.reviewWords.length,0)
+picked=selectSemesterWords(words,[{word_id:1,correct:false,date:'2026-09-13'},{word_id:2,correct:true,date:'2026-09-01'}],[4],'2026-09-13',3,()=>0)
+assert.deepEqual(picked.newWords.map(w=>w.id),[1,2])
+assert.deepEqual(picked.reviewWords.map(w=>w.id),[4])
+picked=selectSemesterWords(words,[{word_id:1,correct:true,date:'2026-09-13'},{word_id:2,correct:true,date:'2026-09-13'}],[3,4],'2026-09-13',10,()=>0)
+assert.equal(picked.newWords.length,0)
+assert.ok(!picked.reviewWords.some(w=>w.id===3))
+assert.equal(new Set(picked.reviewWords.map(w=>w.word)).size,picked.reviewWords.length)
+console.log('semester scheduling tests passed')
+// With Unit 1 covered, the first six Unit 2 words fill the new-word slots on Monday.
+const monday=selectSemesterWords(words,[{word_id:1,correct:true,date:'2026-09-13'},{word_id:2,correct:true,date:'2026-09-13'}],[4],'2026-09-14',10,()=>0)
+assert.deepEqual(monday.newWords.map(w=>w.id),[3])

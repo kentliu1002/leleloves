@@ -39,7 +39,7 @@ export async function GET() {
     })
 
     // 按 book 升序（3上 → 6下）保留 grouped 内顺序
-    const orderedBooks = ['3上','3下','4上','4下','5上','5下','6上','6下']
+    const orderedBooks = ['3上','3下','4上（2026秋）','4上','4下','5上','5下','6上','6下']
     const result = orderedBooks
       .filter(b => grouped[b])
       .map(b => ({ book: b, modules: grouped[b] }))
