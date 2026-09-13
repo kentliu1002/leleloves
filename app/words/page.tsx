@@ -232,7 +232,7 @@ export default function WordsPage() {
           {extraGroupsToday < maxPerDay ? (
             <>
               <div className="notice-text">
-                还想继续吗？再完成一组（5复习+5新词）可得 +5 积分（{extraGroupsToday}/{maxPerDay}）
+                还想继续吗？再完成一组（10词，本学期优先）可得 +5 积分（{extraGroupsToday}/{maxPerDay}）
               </div>
               <button className="primary-btn" onClick={startExtra} disabled={startingExtra}>
                 {startingExtra ? '准备中…' : '🚀 再来一组 +5'}
