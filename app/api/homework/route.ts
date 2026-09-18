@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import pdf from 'pdf-parse';
 import { recognizeSubject } from '../../../lib/homework-subject.mjs';
 import { ensureTodayRecurringHomework } from '../../../lib/recurring-homework.js';
-import { findRecentDuplicate, storageNames, submissionId } from '../../../lib/homework-dedup.mjs';
+import { findRecentDuplicate, submissionId } from '../../../lib/homework-dedup.mjs';
 
 // 1. 核心防线：强制声明为 nodejs 环境，确保 pdf-parse 兼容性，预防 405 错误
 export const runtime = 'nodejs';
@@ -26,9 +27,18 @@ export async function POST(request: Request) {
     let content = body.content || '';
     let extractedText = '';
     const cnDate = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const id = submissionId({ filename, content, date: cnDate });
+    const attachmentUrls: string[] = Array.from(new Set([
+      ...(file_url ? [file_url] : []),
+      ...(Array.isArray(file_urls) ? file_urls.map(file => file.url).filter(Boolean) : [])
+    ]));
+    const fileHashes = await Promise.all(attachmentUrls.map(async url => {
+      const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (!response.ok) throw new Error('读取作业附件失败，请重新上传');
+      return createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex');
+    }));
+    const id = submissionId({ filename, content, date: cnDate, fileHashes });
 
-    // 微信端等待识别时可能再次提交：两分钟内相同原文件名（或纯文字内容）只创建一次。
+    // 附件按实际内容生成编号；纯文字保留短时间重试去重。
     const recentSince = new Date(Date.now() - 2 * 60_000).toISOString();
     const { data: recentRows, error: recentError } = await svc
       .from('homework')
@@ -36,10 +46,13 @@ export async function POST(request: Request) {
       .gte('created_at', recentSince)
       .order('created_at', { ascending: false });
     if (recentError) throw recentError;
-    const duplicate = findRecentDuplicate(recentRows || [], { filename, content });
+    let duplicate = attachmentUrls.length ? null : findRecentDuplicate(recentRows || [], { filename, content });
+    if (attachmentUrls.length) {
+      const { data, error } = await svc.from('homework').select('content, subject').eq('id', id).maybeSingle();
+      if (error) throw error;
+      duplicate = data;
+    }
     if (duplicate) {
-      const uploadedNames = storageNames(file_urls);
-      if (uploadedNames.length > 0) await svc.storage.from('attachments').remove(uploadedNames);
       return NextResponse.json({
         success: true,
         duplicate: true,
@@ -104,8 +117,6 @@ export async function POST(request: Request) {
     }]);
 
     if (insertError?.code === '23505') {
-      const uploadedNames = storageNames(file_urls);
-      if (uploadedNames.length > 0) await svc.storage.from('attachments').remove(uploadedNames);
       const { data: existing } = await svc.from('homework').select('content, subject').eq('id', id).single();
       return NextResponse.json({
         success: true,

@@ -15,4 +15,9 @@ assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 assert.equal(id, submissionId({ filename: '微信图片.png', content: 'ignored', date: '2026-09-10' }))
 assert.notEqual(id, submissionId({ filename: '微信图片2.png', content: '', date: '2026-09-10' }))
 
+
+const unnamed = { filename: '', content: '', date: '2026-09-18' }
+assert.notEqual(submissionId({ ...unnamed, fileHashes: ['math'] }), submissionId({ ...unnamed, fileHashes: ['english'] }))
+assert.equal(submissionId({ ...unnamed, fileHashes: ['math'] }), submissionId({ ...unnamed, filename: 'renamed.png', fileHashes: ['math'] }))
+assert.notEqual(submissionId({ ...unnamed, fileHashes: ['math', 'english'] }), submissionId({ ...unnamed, fileHashes: ['math'] }))
 console.log('homework deduplication tests passed')
