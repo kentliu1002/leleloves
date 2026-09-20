@@ -30,6 +30,7 @@ function getWindowForDay(
   holidays: Holiday[],
   workdays: string[]
 ): { windowStart: string; windowEnd: string } | null {
+  if (workdays.includes(todayStr)) return null
   const wd = new Date(todayStr + 'T12:00:00+08:00').getDay()
   const tomorrowStr  = shiftDate(todayStr,  1)
   const yesterdayStr = shiftDate(todayStr, -1)
@@ -50,12 +51,12 @@ function getWindowForDay(
 
   // 周六（非调休）
   if (wd === 6 && !workdays.includes(todayStr)) {
-    return { windowStart: yesterdayStr, windowEnd: tomorrowStr }
+    return { windowStart: yesterdayStr, windowEnd: workdays.includes(tomorrowStr) ? todayStr : tomorrowStr }
   }
 
   // 周五（非调休，明天也不是调休上班日）
   if (wd === 5 && !workdays.includes(tomorrowStr)) {
-    return { windowStart: todayStr, windowEnd: shiftDate(todayStr, 2) }
+    return { windowStart: todayStr, windowEnd: shiftDate(todayStr, workdays.includes(shiftDate(todayStr, 2)) ? 1 : 2) }
   }
 
   // 正常上学日
@@ -68,6 +69,7 @@ function getWindowRestDays(
   holidays: Holiday[],
   workdays: string[]
 ): number | null {
+  if (workdays.includes(todayStr)) return new Date(todayStr + 'T12:00:00+08:00').getDay() === 6 ? 1 : null
   const wd = new Date(todayStr + 'T12:00:00+08:00').getDay()
   const tomorrowStr = shiftDate(todayStr, 1)
   const ydayStr     = shiftDate(todayStr, -1)
@@ -80,17 +82,14 @@ function getWindowRestDays(
   const beforeHoliday = holidays.find(h => h.start_date === tomorrowStr)
   if (beforeHoliday) return holidayDays(beforeHoliday)
 
-  // 3a. 今天是调休周六（上班日）→ 明天（周日）是唯一休息日，restDays=1
-  if (wd === 6 && workdays.includes(todayStr)) return 1
-
   // 3b. 今天是正常周六（非调休）→ 双休两天
-  if (wd === 6) return 2
+  if (wd === 6) return workdays.includes(tomorrowStr) ? 1 : 2
 
   // 4. 今天是周日
   if (wd === 0) return workdays.includes(ydayStr) ? 1 : 2
 
   // 5. 今天是周五（非调休，明天也不是节假日开始）
-  if (wd === 5 && !workdays.includes(tomorrowStr)) return 2
+  if (wd === 5 && !workdays.includes(tomorrowStr)) return workdays.includes(shiftDate(todayStr, 2)) ? 1 : 2
 
   // 正常上学日
   return null

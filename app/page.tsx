@@ -236,7 +236,7 @@ export default function ChildDashboard() {
     const mult             = restDays + 1
 
     // ── 上学日：周一~周四 / 调休当天 / 明天调休（今晚按上学日截止）
-    const isSchoolDay = (wd >= 1 && wd <= 4) || todayWorkday || tomorrowWorkday
+    const isSchoolDay = (wd >= 1 && wd <= 4) || todayWorkday || (tomorrowWorkday && !pointsData?.currentWindow)
     if (isSchoolDay) {
       // 调休周六特殊处理：今天是上班日，但明天（周日）是唯一假期
       // 显示明日假期窗口规则，让学生了解明天的积分策略

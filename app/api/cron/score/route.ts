@@ -82,6 +82,11 @@ function getNonNormalWindow(dateStr: string, holidays: Holiday[], workdays: stri
     return { windowStart, windowEnd: dateStr, label: holiday.name, restDays }
   }
 
+  // 周日调休上学：周五、周六的作业窗口在周六结束。
+  if (weekday(dateStr) === 6 && workdays.includes(shiftDate(dateStr, 1))) {
+    return { windowStart: shiftDate(dateStr, -1), windowEnd: dateStr, label: '周末', restDays: 1 }
+  }
+
   // 普通周末：周日是最后一天
   if (weekday(dateStr) === 0) {
     const saturday = shiftDate(dateStr, -1)
