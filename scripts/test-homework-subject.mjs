@@ -15,4 +15,7 @@ assert.equal(await recognizeSubject({ text: '完成习作', apiKey: 'test' }, ()
 
 assert.equal(subjectFromText('学习了《方帽子店》，完成周练3语基部分，今天听写全对'), '语文')
 await assert.rejects(() => recognizeSubject({ imageUrl: 'https://example.test/english.png', apiKey: 'test' }, async () => { throw new Error('fetch failed') }), /识别服务暂时不可用/)
+
+assert.equal(await recognizeSubject({ text: '🌞9月20日\n🌻「学习内容」\n1.讲评校本、周练\n🌻「课后任务」\n1.订正校本《方帽子店》\n2.预习《田忌赛马》《园地二》', apiKey: 'test' }, async () => { throw new Error('fetch failed') }), '语文')
+
 console.log('subject tests passed')
