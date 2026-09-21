@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import pdf from 'pdf-parse';
-import { recognizeSubject } from '../../../lib/homework-subject.mjs';
+import { recognizeSubject, recognizeSubjectForPublish } from '../../../lib/homework-subject.mjs';
 import { ensureTodayRecurringHomework } from '../../../lib/recurring-homework.js';
 import { findRecentDuplicate, submissionId } from '../../../lib/homework-dedup.mjs';
 
@@ -16,6 +17,33 @@ const svc = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+
+async function retryPendingSubject(row: any) {
+  try {
+    let files: any[] = [];
+    try { files = JSON.parse(row.file_urls || '[]'); } catch {}
+    const first = files[0] || {};
+    const generic = /^待识别\d+$/.test(row.content || '');
+    const subject = await recognizeSubject({
+      apiKey: ARK_API_KEY,
+      text: generic ? '' : row.content,
+      filename: first.filename || '',
+      imageUrl: row.file_type === 'image' ? row.file_url : undefined
+    });
+    let content = row.content;
+    if (generic) {
+      const todayStr = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const { count } = await svc.from('homework').select('*', { count: 'exact', head: true })
+        .eq('subject', subject).gte('created_at', `${todayStr}T00:00:00+08:00`);
+      content = `${subject}${(count || 0) + 1}`;
+    }
+    const { error } = await svc.from('homework').update({ subject, content }).eq('id', row.id).eq('subject', '待识别');
+    if (error) throw error;
+  } catch (error: any) {
+    console.error('[subject] background retry failed:', error.message);
+  }
+}
 
 // ==========================================
 // 🚀 POST: 处理作业上传与 AI 识别
@@ -83,12 +111,13 @@ export async function POST(request: Request) {
     }
 
     // B. 调用 AI 分析
-    const aiSubject = await recognizeSubject({
+    const subjectResult = await recognizeSubjectForPublish({
       apiKey: ARK_API_KEY,
       text: extractedText || content,
       filename: filename,
       imageUrl: file_type === 'image' ? file_url : undefined
     });
+    const aiSubject = subjectResult.subject;
 
     // C. 智能自动命名逻辑 (学科 + 序号)
     const isGeneric = !content.trim() || /^(wx_|mmexport|img_|image_|\d{10,})/i.test(content);
@@ -127,10 +156,15 @@ export async function POST(request: Request) {
     }
     if (insertError) throw insertError;
 
+    if (subjectResult.pending) {
+      waitUntil(retryPendingSubject({ id, content, file_url, file_type, file_urls: Array.isArray(file_urls) ? JSON.stringify(file_urls) : file_urls }));
+    }
+
     return NextResponse.json({ 
       success: true, 
       subject: aiSubject, 
-      finalName: content 
+      finalName: content,
+      subjectPending: subjectResult.pending
     });
 
   } catch (err: any) {
@@ -152,6 +186,8 @@ export async function GET(request: Request) {
       .limit(50);
       
     if (error) throw error;
+    const pendingRows = (data || []).filter(row => row.subject === '待识别');
+    if (pendingRows.length) waitUntil(Promise.all(pendingRows.map(retryPendingSubject)));
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
