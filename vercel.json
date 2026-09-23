@@ -1,6 +1,9 @@
 {
   "regions": ["hkg1"],
   "functions": {
+    "app/api/homework/subject-relay/route.ts": {
+      "regions": ["iad1"]
+    },
     "app/api/**": {
       "regions": ["hkg1"]
     }
