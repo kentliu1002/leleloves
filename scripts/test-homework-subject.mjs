@@ -11,6 +11,27 @@ assert.equal(await recognizeSubject({ imageUrl: 'https://example.test/photo.jpg'
   return { ok: true, json: async () => ({ choices: [{ message: { content: '英语' } }] }) }
 }), '英语')
 assert.equal(calls, 3)
+
+const providerUrls = []
+assert.equal(await recognizeSubject({
+  imageUrl: 'https://example.test/math.png',
+  apiKey: 'doubao-test',
+  fallbackUrl: 'https://example.test/subject-relay',
+  fallbackKey: 'relay-test'
+}, async (url, options) => {
+  providerUrls.push(url)
+  if (url.includes('volces.com')) throw new Error('connect timeout')
+  const body = JSON.parse(options.body)
+  assert.equal(body.model, 'doubao-seed-evolving')
+  assert.equal(body.thinking.type, 'disabled')
+  assert.equal(options.headers.Authorization, 'Bearer relay-test')
+  return { ok: true, json: async () => ({ choices: [{ message: { content: '数学' } }] }) }
+}), '数学')
+assert.deepEqual(providerUrls, [
+  'https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions',
+  'https://example.test/subject-relay'
+])
+
 assert.equal(await recognizeSubject({ text: '完成习作', apiKey: 'test' }, () => { throw new Error('should not call AI') }), '语文')
 
 assert.equal(subjectFromText('学习了《方帽子店》，完成周练3语基部分，今天听写全对'), '语文')

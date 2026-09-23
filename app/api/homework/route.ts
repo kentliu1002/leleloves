@@ -11,6 +11,7 @@ import { findRecentDuplicate, submissionId } from '../../../lib/homework-dedup.m
 export const runtime = 'nodejs';
 
 const ARK_API_KEY = process.env.ARK_API_KEY;
+const CRON_SECRET = process.env.CRON_SECRET;
 
 // service_role 客户端：读取开启了 RLS 的 recurring_homework，并生成当日固定作业
 const svc = createClient(
@@ -27,6 +28,8 @@ async function retryPendingSubject(row: any) {
     const generic = /^待识别\d+$/.test(row.content || '');
     const subject = await recognizeSubject({
       apiKey: ARK_API_KEY,
+      fallbackUrl: CRON_SECRET ? 'https://www.leleloves.cn/api/homework/subject-relay' : undefined,
+      fallbackKey: CRON_SECRET,
       text: generic ? '' : row.content,
       filename: first.filename || '',
       imageUrl: row.file_type === 'image' ? row.file_url : undefined
@@ -187,7 +190,9 @@ export async function GET(request: Request) {
       
     if (error) throw error;
     const pendingRows = (data || []).filter(row => row.subject === '待识别');
-    if (pendingRows.length) waitUntil(Promise.all(pendingRows.map(retryPendingSubject)));
+    if (pendingRows.length) waitUntil((async () => {
+      for (const row of pendingRows.slice(0, 3)) await retryPendingSubject(row);
+    })());
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
