@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {
   calendarUrl,
+  deletePolicy,
   mergeCalendarRows,
   parseGovernmentCalendar,
   syncGovernmentCalendar
@@ -103,5 +104,8 @@ await assert.rejects(() => syncGovernmentCalendar({
 }), /network down/)
 assert.equal(JSON.stringify(failedRepository.holidays), beforeFailure)
 assert.equal(failedRepository.writes, 0)
+
+assert.equal(deletePolicy({ source: 'manual' }), 'delete')
+assert.equal(deletePolicy({ source: 'government' }), 'disable')
 
 console.log('China calendar synchronization tests passed')

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { mergeCalendarRows } from '../../../lib/china-calendar-sync.mjs'
 
 export const runtime = 'nodejs'
 
@@ -14,7 +15,7 @@ export async function GET() {
     .select('*')
     .order('start_date', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data || [])
+  return NextResponse.json(mergeCalendarRows(data || [], 'holiday'))
 }
 
 export async function POST(request: Request) {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('holidays')
-      .insert({ name: name.trim(), start_date, end_date })
+      .insert({ name: name.trim(), start_date, end_date, source: 'manual' })
       .select()
       .single()
 

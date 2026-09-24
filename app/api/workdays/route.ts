@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { mergeCalendarRows } from '../../../lib/china-calendar-sync.mjs'
 
 export const runtime = 'nodejs'
 
@@ -14,7 +15,7 @@ export async function GET() {
     .select('*')
     .order('date', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data || [])
+  return NextResponse.json(mergeCalendarRows(data || [], 'workday'))
 }
 
 export async function POST(request: Request) {
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('workday_overrides')
-      .insert({ date, note: note?.trim() || null })
+      .insert({ date, note: note?.trim() || null, source: 'manual' })
       .select()
       .single()
 
