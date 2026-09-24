@@ -116,4 +116,15 @@ assert.equal(await fetchGovernmentYear(2027, async () => ({
   json: async () => ({ year: 2027, papers: [], days: [] })
 })), null)
 
+let fetchArgumentCount = 0
+await syncGovernmentCalendar({
+  years: [2027],
+  fetchYear: async (...args) => {
+    fetchArgumentCount = args.length
+    return null
+  },
+  repository: createRepository()
+})
+assert.equal(fetchArgumentCount, 1)
+
 console.log('China calendar synchronization tests passed')
