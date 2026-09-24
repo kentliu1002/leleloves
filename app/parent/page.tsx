@@ -14,9 +14,10 @@ const SUBJECT_COLORS: Record<string,string> = {
 };
 
 type Tab = 'assign' | 'history' | 'points' | 'holidays';
-interface WorkdayOverride { id: string; date: string; note: string | null }
+interface WorkdayOverride { id: string; date: string; note: string | null; source?: 'manual' | 'government' }
 
-interface Holiday { id: string; name: string; start_date: string; end_date: string }
+interface Holiday { id: string; name: string; start_date: string; end_date: string; source?: 'manual' | 'government' }
+interface CalendarSyncState { last_success_at: string | null; synced_years: number[]; last_error: string | null }
 interface PointsLog { points: number; date: string; reason: string; source: string; day_type: string; created_at: string }
 
 function cleanMarkdown(text: string): string {
@@ -132,6 +133,7 @@ export default function ParentPage() {
   const [wdDate, setWdDate] = useState('');
   const [wdNote, setWdNote] = useState('');
   const [wdLoading, setWdLoading] = useState(false);
+  const [calendarSync, setCalendarSync] = useState<CalendarSyncState | null>(null);
 
   const fetchWorkdays = async () => {
     try {
@@ -139,7 +141,14 @@ export default function ParentPage() {
       if (res.ok) setWorkdays(await res.json());
     } catch {}
   };
+  const fetchCalendarSync = async () => {
+    try {
+      const res = await fetch('/api/calendar-sync');
+      if (res.ok) setCalendarSync(await res.json());
+    } catch {}
+  };
   useEffect(() => { if (activeTab === 'holidays') fetchWorkdays(); }, [activeTab]);
+  useEffect(() => { if (activeTab === 'holidays') fetchCalendarSync(); }, [activeTab]);
 
   const handleAddWorkday = async () => {
     if (!wdDate) { alert('请选择日期'); return; }
@@ -417,6 +426,18 @@ export default function ParentPage() {
         {activeTab==='holidays' && (
           <div className="space-y-6">
 
+            <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 text-sm font-medium text-emerald-800">
+              <div className="font-black mb-1">🇨🇳 中国法定节假日自动同步</div>
+              {calendarSync?.last_success_at ? (
+                <div>
+                  最近同步：{new Date(calendarSync.last_success_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
+                  {calendarSync.synced_years?.length > 0 && ` · ${calendarSync.synced_years.join('、')}年`}
+                </div>
+              ) : <div>等待首次同步</div>}
+              {calendarSync?.last_error && <div className="mt-1 text-amber-700">同步异常，现有设置继续有效：{calendarSync.last_error}</div>}
+              <div className="mt-1 text-emerald-700">自动同步后仍可手工调整，手工设置优先。</div>
+            </div>
+
             {/* 调休工作日 */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-orange-100">
               <h2 className="text-xl font-black text-slate-800 mb-1">💼 调休工作日设置</h2>
@@ -457,6 +478,9 @@ export default function ParentPage() {
                           <span className="font-black text-orange-700">{w.date}</span>
                           <span className="ml-2 text-sm text-gray-500">（{wdName}）</span>
                           {w.note && <span className="ml-2 text-sm text-gray-400">· {w.note}</span>}
+                          <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${w.source==='government'?'bg-emerald-100 text-emerald-700':'bg-slate-200 text-slate-600'}`}>
+                            {w.source==='government'?'政府同步':'手工设置'}
+                          </span>
                         </div>
                         <button onClick={()=>handleDeleteWorkday(w.id, w.date)}
                           className="text-red-400 hover:text-red-600 font-bold text-sm flex-shrink-0">取消</button>
@@ -503,7 +527,7 @@ export default function ParentPage() {
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xl font-black text-slate-800">📅 已设置的假期</h2>
-                <button onClick={fetchHolidays} className="text-sm text-gray-400 hover:text-gray-600 font-bold">🔄 刷新</button>
+                <button onClick={()=>{fetchHolidays();fetchWorkdays();fetchCalendarSync();}} className="text-sm text-gray-400 hover:text-gray-600 font-bold">🔄 刷新</button>
               </div>
               {holidays.length===0?(
                 <div className="text-center py-8 text-gray-400">暂无假期设置</div>
@@ -515,7 +539,12 @@ export default function ParentPage() {
                     return (
                       <div key={h.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
                         <div className="flex-1">
-                          <div className="font-black text-gray-800 text-base mb-1">🏖️ {h.name}</div>
+                          <div className="font-black text-gray-800 text-base mb-1">
+                            🏖️ {h.name}
+                            <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${h.source==='government'?'bg-emerald-100 text-emerald-700':'bg-slate-200 text-slate-600'}`}>
+                              {h.source==='government'?'政府同步':'手工设置'}
+                            </span>
+                          </div>
                           <div className="text-sm text-gray-500 font-medium">
                             假期：{h.start_date} ~ {h.end_date}（{days}天）
                           </div>
