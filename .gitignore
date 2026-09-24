@@ -7,3 +7,4 @@ node_modules/
 .next/
 *.tsbuildinfo
 .worktrees/
+supabase/.temp/
