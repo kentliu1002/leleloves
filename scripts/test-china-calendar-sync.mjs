@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import {
   calendarUrl,
   deletePolicy,
+  fetchGovernmentYear,
   mergeCalendarRows,
   parseGovernmentCalendar,
-  syncGovernmentCalendar
+  syncGovernmentCalendar,
+  syncYears
 } from '../lib/china-calendar-sync.mjs'
 
 const fixture = {
@@ -107,5 +109,11 @@ assert.equal(failedRepository.writes, 0)
 
 assert.equal(deletePolicy({ source: 'manual' }), 'delete')
 assert.equal(deletePolicy({ source: 'government' }), 'disable')
+assert.deepEqual(syncYears(new Date('2026-09-24T04:00:00Z')), [2026, 2027])
+assert.equal(await fetchGovernmentYear(2027, async () => ({
+  status: 200,
+  ok: true,
+  json: async () => ({ year: 2027, papers: [], days: [] })
+})), null)
 
 console.log('China calendar synchronization tests passed')
