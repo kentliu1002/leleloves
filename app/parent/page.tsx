@@ -387,8 +387,7 @@ export default function ParentPage() {
                 <div className="flex gap-3">
                   <button onClick={()=>{ if(!manualPoints||parseInt(manualPoints)>=0) return; setManualPoints(p=>p); handleManualPoints(); }}
                     disabled={manualLoading||!manualPoints||parseInt(manualPoints)>=0}
-                    className="flex-1 bg-red-500 disabled:bg-gray-300 text-white py-3 rounded-xl font-bold text-lg transition-all active:scale-95"
-                    onClick={handleManualPoints}>
+                    className="flex-1 bg-red-500 disabled:bg-gray-300 text-white py-3 rounded-xl font-bold text-lg transition-all active:scale-95">
                     {manualLoading?'处理中...':'确认操作'}
                   </button>
                 </div>

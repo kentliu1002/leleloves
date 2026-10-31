@@ -10,7 +10,7 @@ interface Word {
   topic: string
 }
 
-type Phase = 'loading' | 'noTopics' | 'reviewQuiz' | 'newStudy' | 'newQuiz' | 'done'
+type Phase = 'loading' | 'noTopics' | 'reviewQuiz' | 'newStudy' | 'newQuiz' | 'done' | 'error'
 
 function audioUrl(word: string) {
   return `https://dict.youdao.com/dictvoice?type=0&audio=${encodeURIComponent(word)}`
@@ -28,6 +28,7 @@ export default function WordsPage() {
   const [input, setInput] = useState('')
   const [wrong, setWrong] = useState(false)
   const [attemptNo, setAttemptNo] = useState(1)
+  const [submitting, setSubmitting] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   // 例句缓存: { [wordId]: { en, zh } | 'loading' | 'error' }
   const [examples, setExamples] = useState<Record<number, { en: string, zh: string } | 'loading' | 'error'>>({})
@@ -38,18 +39,24 @@ export default function WordsPage() {
   const [maxPerDay, setMaxPerDay] = useState(3)
   const [startingExtra, setStartingExtra] = useState(false)
 
-  // 拉今日 session
+  // 抽查通过状态来自当天已保存的答题记录。
+  const loadToday = async () => {
+    const response = await fetch('/api/vocab/today')
+    const d = await response.json()
+    if (!response.ok) throw new Error(d.error || '单词任务加载失败，请重试')
+    if (d.warning) { setWarning(d.warning); setPhase('noTopics'); return }
+    setNewWords(d.newWords || [])
+    setReviewWords(d.reviewWords || [])
+    setIdx(0); setStudyIdx(0)
+    if (typeof d.extraGroupsToday === 'number') setExtraGroupsToday(d.extraGroupsToday)
+    if (d.completedToday) { setPhase('done'); return }
+    if (!d.reviewPassed && (d.reviewWords || []).length > 0) setPhase('reviewQuiz')
+    else if ((d.newWords || []).length > 0) setPhase('newStudy')
+    else await finishGroup()
+  }
+
   useEffect(() => {
-    fetch('/api/vocab/today').then(r => r.json()).then(d => {
-      if (d.warning) { setWarning(d.warning); setPhase('noTopics'); return }
-      setNewWords(d.newWords || [])
-      setReviewWords(d.reviewWords || [])
-      if (typeof d.extraGroupsToday === 'number') setExtraGroupsToday(d.extraGroupsToday)
-      if (d.completedToday) { setPhase('done'); return }
-      if ((d.newWords || []).length > 0) setPhase('newStudy')
-      else if ((d.reviewWords || []).length > 0) setPhase('reviewQuiz')
-      else { setPhase('done') }
-    }).catch(() => setPhase('done'))
+    loadToday().catch(e => { setWarning(e.message); setPhase('error') })
   }, [])
 
   const currentList = phase === 'reviewQuiz' ? reviewWords : phase === 'newQuiz' ? newWords : []
@@ -97,44 +104,50 @@ export default function WordsPage() {
 
   const submitAttempt = async (correct: boolean) => {
     if (!currentWord) return
-    try {
-      await fetch('/api/vocab/attempt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wordId: currentWord.id,
-          kind: phase === 'reviewQuiz' ? 'review' : 'new',
-          correct,
-          attempt_no: attemptNo
-        })
+    const response = await fetch('/api/vocab/attempt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        wordId: currentWord.id,
+        kind: phase === 'reviewQuiz' ? 'review' : 'new',
+        correct,
+        attempt_no: attemptNo
       })
-    } catch {}
+    })
+    if (!response.ok) {
+      const data = await response.json()
+      throw new Error(data.error || '答题记录保存失败，请重试')
+    }
   }
 
   const onSubmit = async () => {
-    if (!currentWord) return
-    const target = currentWord.word.toLowerCase().trim()
-    const got = input.toLowerCase().trim()
-    const correct = got === target
-    await submitAttempt(correct)
-    if (correct) {
-      // 进入下一个
-      setInput('')
-      setWrong(false)
-      setAttemptNo(1)
-      if (idx + 1 < currentList.length) {
-        setIdx(idx + 1)
-      } else {
-        // 当前阶段结束
-        if (phase === 'reviewQuiz') {
-          await finishGroup()
+    if (!currentWord || submitting) return
+    setSubmitting(true)
+    try {
+      const target = currentWord.word.toLowerCase().trim()
+      const got = input.toLowerCase().trim()
+      const correct = got === target
+      await submitAttempt(correct)
+      if (correct) {
+        setInput('')
+        setWrong(false)
+        setAttemptNo(1)
+        if (idx + 1 < currentList.length) {
+          setIdx(idx + 1)
+        } else if (phase === 'reviewQuiz') {
+          if (isExtra) await finishGroup()
+          else await loadToday()
         } else if (phase === 'newQuiz') {
-          if (reviewWords.length > 0) { setPhase('reviewQuiz'); setIdx(0) }
-          else { await finishGroup() }
+          if (isExtra && reviewWords.length > 0) { setPhase('reviewQuiz'); setIdx(0) }
+          else await finishGroup()
         }
+      } else {
+        setWrong(true)
       }
-    } else {
-      setWrong(true)
+    } catch (e: any) {
+      alert(e.message || '提交失败，请重试')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -155,14 +168,12 @@ export default function WordsPage() {
 
   // 一组结束：硬性组标记完成(+5)，额外组发额外 +5
   const finishGroup = async () => {
+    const response = await fetch(isExtra ? '/api/vocab/extra' : '/api/vocab/complete', { method: 'POST' })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error || '完成记录保存失败，请重试')
     if (isExtra) {
-      try {
-        const r = await fetch('/api/vocab/extra', { method: 'POST' }).then(r => r.json())
-        if (typeof r.extraGroupsToday === 'number') setExtraGroupsToday(r.extraGroupsToday)
-        if (typeof r.maxPerDay === 'number') setMaxPerDay(r.maxPerDay)
-      } catch {}
-    } else {
-      try { await fetch('/api/vocab/complete', { method: 'POST' }) } catch {}
+      if (typeof data.extraGroupsToday === 'number') setExtraGroupsToday(data.extraGroupsToday)
+      if (typeof data.maxPerDay === 'number') setMaxPerDay(data.maxPerDay)
     }
     setIsExtra(false)
     setPhase('done')
@@ -212,6 +223,15 @@ export default function WordsPage() {
       </div>
 
       {phase === 'loading' && <div className="center">加载中…</div>}
+      {phase === 'error' && (
+        <div className="center notice-card">
+          <div className="notice-text">{warning}</div>
+          <button className="primary-btn" onClick={() => {
+            setPhase('loading')
+            loadToday().catch(e => { setWarning(e.message); setPhase('error') })
+          }}>重试</button>
+        </div>
+      )}
 
       {phase === 'noTopics' && (
         <div className="center notice-card">
@@ -232,7 +252,7 @@ export default function WordsPage() {
           {extraGroupsToday < maxPerDay ? (
             <>
               <div className="notice-text">
-                还想继续吗？再完成一组（10词，本学期优先）可得 +5 积分（{extraGroupsToday}/{maxPerDay}）
+                还想继续吗？再完成一组（最多10词，仅四年级上册）可得 +5 积分（{extraGroupsToday}/{maxPerDay}）
               </div>
               <button className="primary-btn" onClick={startExtra} disabled={startingExtra}>
                 {startingExtra ? '准备中…' : '🚀 再来一组 +5'}
@@ -248,7 +268,7 @@ export default function WordsPage() {
       {(phase === 'reviewQuiz' || phase === 'newQuiz') && currentWord && !hintingWord && (
         <div className="quiz-card">
           <div className="quiz-phase-label">
-            {(isExtra ? '🎁 额外组 · ' : '') + (phase === 'reviewQuiz' ? '🔁 复习阶段' : '✨ 新词测试')}
+            {(isExtra ? '🎁 额外组 · ' : '') + (phase === 'reviewQuiz' ? (isExtra ? '🔁 复习阶段' : '🔎 学过单词抽查 · 全部答对后解锁新词') : '✨ 新词测试')}
             <span className="progress-label">{idx + 1} / {currentList.length}</span>
           </div>
           <div className="quiz-meaning">{currentWord.meaning_zh}</div>
@@ -269,11 +289,11 @@ export default function WordsPage() {
             autoCorrect="off"
             autoComplete="off"
             placeholder={`输入 ${currentWord.word.length} 个字母`}
-            disabled={wrong}
+            disabled={wrong || submitting}
             onKeyDown={(e) => { if (e.key === 'Enter' && !wrong) onSubmit() }}
           />
           {!wrong && (
-            <button className="primary-btn" onClick={onSubmit} disabled={input.length === 0}>
+            <button className="primary-btn" onClick={onSubmit} disabled={submitting || input.length === 0}>
               ✅ 提交答案
             </button>
           )}

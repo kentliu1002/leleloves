@@ -6,7 +6,12 @@ assert.equal(subjectFromText('数学和英语'), '其它')
 let calls = 0
 assert.equal(await recognizeSubject({ imageUrl: 'https://example.test/photo.jpg', apiKey: 'test' }, async (_, options) => {
   calls++
-  assert.equal(JSON.parse(options.body).thinking.type, 'disabled')
+  const body = JSON.parse(options.body)
+  assert.equal(body.model, 'gpt-5.4-mini')
+  assert.equal(body.reasoning_effort, 'none')
+  assert.equal(body.max_completion_tokens, 32)
+  assert.equal('thinking' in body, false)
+  assert.equal('max_tokens' in body, false)
   if (calls < 3) throw new Error('connect timeout')
   return { ok: true, json: async () => ({ choices: [{ message: { content: '英语' } }] }) }
 }), '英语')
@@ -15,20 +20,22 @@ assert.equal(calls, 3)
 const providerUrls = []
 assert.equal(await recognizeSubject({
   imageUrl: 'https://example.test/math.png',
-  apiKey: 'doubao-test',
+  apiKey: 'openai-test',
   fallbackUrl: 'https://example.test/subject-relay',
   fallbackKey: 'relay-test'
 }, async (url, options) => {
   providerUrls.push(url)
-  if (url.includes('volces.com')) throw new Error('connect timeout')
+  if (url.includes('api.openai.com')) throw new Error('connect timeout')
   const body = JSON.parse(options.body)
-  assert.equal(body.model, 'doubao-seed-evolving')
-  assert.equal(body.thinking.type, 'disabled')
+  assert.equal(body.model, 'gpt-5.4-mini')
+  assert.equal(body.reasoning_effort, 'none')
+  assert.equal('thinking' in body, false)
+  assert.equal('max_tokens' in body, false)
   assert.equal(options.headers.Authorization, 'Bearer relay-test')
   return { ok: true, json: async () => ({ choices: [{ message: { content: '数学' } }] }) }
 }), '数学')
 assert.deepEqual(providerUrls, [
-  'https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions',
+  'https://api.openai.com/v1/chat/completions',
   'https://example.test/subject-relay'
 ])
 

@@ -10,10 +10,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.ARK_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: await request.text(),

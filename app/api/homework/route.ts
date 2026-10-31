@@ -10,7 +10,7 @@ import { findRecentDuplicate, submissionId } from '../../../lib/homework-dedup.m
 // 1. 核心防线：强制声明为 nodejs 环境，确保 pdf-parse 兼容性，预防 405 错误
 export const runtime = 'nodejs';
 
-const ARK_API_KEY = process.env.ARK_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
 
 // service_role 客户端：读取开启了 RLS 的 recurring_homework，并生成当日固定作业
@@ -27,7 +27,7 @@ async function retryPendingSubject(row: any) {
     const first = files[0] || {};
     const generic = /^待识别\d+$/.test(row.content || '');
     const subject = await recognizeSubject({
-      apiKey: ARK_API_KEY,
+      apiKey: OPENAI_API_KEY,
       fallbackUrl: CRON_SECRET ? 'https://www.leleloves.cn/api/homework/subject-relay' : undefined,
       fallbackKey: CRON_SECRET,
       text: generic ? '' : row.content,
@@ -115,10 +115,8 @@ export async function POST(request: Request) {
 
     // B. 调用 AI 分析
     const subjectResult = await recognizeSubjectForPublish({
-      apiKey: ARK_API_KEY,
       text: extractedText || content,
-      filename: filename,
-      imageUrl: file_type === 'image' ? file_url : undefined
+      filename: filename
     });
     const aiSubject = subjectResult.subject;
 

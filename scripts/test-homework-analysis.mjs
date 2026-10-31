@@ -14,6 +14,7 @@ async function scenario(responses, downloadFails = false) {
   }
   globalThis.fetch = async (url, options) => {
     if (!options?.method) return new Response(photo, { status: downloadFails ? 500 : 200 })
+    assert.equal(url, 'https://api.openai.com/v1/chat/completions')
     calls.push(JSON.parse(options.body))
     return Response.json(responses.shift())
   }
@@ -26,6 +27,9 @@ async function scenario(responses, downloadFails = false) {
 const candidate = reply({ ...report, errors: [{ question: '一(2)', student: '十万', correct: '万', reason: '候选误判' }] })
 const success = await scenario([candidate, reply(report), reply(report), reply(report)])
 assert.ifError(success.error)
+assert.ok(success.calls.every(c => c.model === 'gpt-5.4-mini' && c.reasoning_effort === 'none'))
+assert.ok(success.calls.every(c => c.max_completion_tokens === 1500 && !('thinking' in c) && !('max_tokens' in c)))
+assert.ok(success.calls.every(c => c.temperature === 0.1 && c.response_format.type === 'json_object'))
 assert.match(success.result, /未发现可确认/)
 assert.doesNotMatch(success.result, /候选误判/)
 assert.equal(success.uploaded[0].meta.width, 80)

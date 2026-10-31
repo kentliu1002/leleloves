@@ -41,10 +41,10 @@ export async function GET() {
     const { data: dailies } = await supabase
       .from('vocab_daily').select('*').order('date', { ascending: false }).limit(14)
     const dailyRows = dailies || []
-    const wordIds = [...new Set(dailyRows.flatMap(d => [
+    const wordIds = Array.from(new Set(dailyRows.flatMap(d => [
       ...(d.new_word_ids || []),
       ...(d.review_word_ids || [])
-    ]))]
+    ])))
     const { data: words } = await supabase
       .from('vocabulary')
       .select('id,word,meaning_zh,topic')

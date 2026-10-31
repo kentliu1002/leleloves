@@ -41,12 +41,12 @@ async function guard(today: string): Promise<
   return { ok: true, extraGroupsToday }
 }
 
-// GET：与每日任务相同，优先本学期已开放词，旧词补满 10 个
+// GET：仅从本学期已开放词中选取新词和复习词，共最多 10 个
 export async function GET() {
   try {
     const today = bjToday()
     const g = await guard(today)
-    if (!g.ok) {
+    if (g.ok === false) {
       return NextResponse.json(
         { error: g.error, extraGroupsToday: g.extraGroupsToday, maxPerDay: MAX_EXTRA_PER_DAY },
         { status: g.status }
@@ -71,7 +71,7 @@ export async function POST() {
   try {
     const today = bjToday()
     const g = await guard(today)
-    if (!g.ok) {
+    if (g.ok === false) {
       return NextResponse.json(
         { error: g.error, extraGroupsToday: g.extraGroupsToday, maxPerDay: MAX_EXTRA_PER_DAY },
         { status: g.status }

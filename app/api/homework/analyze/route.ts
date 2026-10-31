@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ feedback: hw.ai_feedback })
     }
 
-    const feedback = await runAnalysis(hw.content, hw.proof_image, supabase, process.env.ARK_API_KEY)
+    const feedback = await runAnalysis(hw.content, hw.proof_image, supabase, process.env.OPENAI_API_KEY)
     // Preview validation must not overwrite production homework.
     if (process.env.VERCEL_ENV === 'preview') return NextResponse.json({ feedback })
 
