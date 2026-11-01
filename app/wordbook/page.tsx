@@ -4,15 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import './wordbook.css'
 
-type Word = { id: number; word: string; ipa: string; meaning_zh: string; example_en: string; example_zh: string }
+type Word = { id: number; word: string; ipa: string; meaning_zh: string; example_en: string; example_zh: string; word_audio_url: string; example_audio_url: string }
 type Unit = { unit: number; words: Word[] }
-type Example = { en: string; zh: string } | 'loading' | 'error'
 
 export default function WordbookPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [unitIndex, setUnitIndex] = useState(0)
   const [selected, setSelected] = useState<Word | null>(null)
-  const [examples, setExamples] = useState<Record<number, Example>>({})
   const [pronunciations, setPronunciations] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,20 +29,9 @@ export default function WordbookPage() {
     return () => controller.abort()
   }, [retry])
 
-  const loadExample = (word: Word) => {
-    setExamples(prev => ({ ...prev, [word.id]: 'loading' }))
-    fetch(`/api/vocab/example?id=${word.id}`)
-      .then(async res => { const data = await res.json(); if (!res.ok || !data.en || !data.zh) throw new Error('example'); return data })
-      .then(data => setExamples(prev => ({ ...prev, [word.id]: { en: data.en, zh: data.zh } })))
-      .catch(() => setExamples(prev => ({ ...prev, [word.id]: 'error' })))
-  }
-
-  const chooseWord = (word: Word) => {
+  const chooseWord = (word: Word, scrollToCard = true) => {
+    audioRef.current?.pause()
     setSelected(word); setAudioError('')
-    if (!examples[word.id]) {
-      if (word.example_en && word.example_zh) setExamples(prev => ({ ...prev, [word.id]: { en: word.example_en, zh: word.example_zh } }))
-      else loadExample(word)
-    }
     if (!word.ipa && pronunciations[word.id] === undefined) {
       setPronunciations(prev => ({ ...prev, [word.id]: '正在查找音标…' }))
       fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.word)}`)
@@ -55,26 +42,18 @@ export default function WordbookPage() {
         })
         .catch(() => setPronunciations(prev => ({ ...prev, [word.id]: '暂无音标' })))
     }
-    setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+    if (scrollToCard) setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' }), 0)
   }
 
-  const playWord = (word: string) => {
-    if (!audioRef.current) return
+  const playAudio = (url: string) => {
+    if (!audioRef.current || !url) return
     setAudioError('')
-    audioRef.current.src = `https://dict.youdao.com/dictvoice?type=0&audio=${encodeURIComponent(word)}`
+    audioRef.current.src = url
     audioRef.current.play().catch(() => setAudioError('发音暂时无法播放，请稍后再试。'))
-  }
-  const playSentence = (sentence: string) => {
-    if (!('speechSynthesis' in window)) { setAudioError('当前设备暂不支持例句朗读。'); return }
-    setAudioError('')
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(sentence)
-    utterance.lang = 'en-US'; utterance.rate = 0.85
-    window.speechSynthesis.speak(utterance)
   }
 
   const current = units[unitIndex]
-  const example = selected && examples[selected.id]
+  const selectedIndex = selected ? (current?.words.findIndex(word => word.id === selected.id) ?? -1) : -1
   return (
     <main className="wordbook">
       <div className="wordbook-shell">
@@ -104,17 +83,25 @@ export default function WordbookPage() {
 
           {selected && <section ref={detailRef} className="wordbook-detail" aria-label="单词学习卡片" aria-live="polite">
             <div className="wordbook-detail-top"><span>📖 单词学习卡</span><button className="wordbook-close" onClick={() => setSelected(null)} aria-label="关闭学习卡片">✕</button></div>
+            <div className="wordbook-navigation" aria-label="单元内单词切换">
+              <button type="button" disabled={selectedIndex <= 0} onClick={() => chooseWord(current.words[selectedIndex - 1], false)}>← 上一个</button>
+              <span>{selectedIndex + 1} / {current.words.length}</span>
+              <button type="button" disabled={selectedIndex < 0 || selectedIndex >= current.words.length - 1} onClick={() => chooseWord(current.words[selectedIndex + 1], false)}>下一个 →</button>
+            </div>
+            <p className="wordbook-audio-note">🔊 AI 生成的英语发音</p>
             <div className="wordbook-detail-word">{selected.word}</div>
             <div className="wordbook-ipa">{selected.ipa || pronunciations[selected.id] || '暂无音标'}</div>
             <div className="wordbook-meaning">{selected.meaning_zh}</div>
-            <button className="wordbook-sound" onClick={() => playWord(selected.word)}>🔊 听单词发音</button>
+            <button className="wordbook-sound" disabled={!selected.word_audio_url} onClick={() => playAudio(selected.word_audio_url)}>🔊 听单词发音</button>
+            {!selected.word_audio_url && <p className="wordbook-error">单词发音暂未准备好。</p>}
             {audioError && <p className="wordbook-error" role="status">{audioError}</p>}
             <div className="wordbook-example">
               <div className="wordbook-example-label">✦ 例句时间</div>
-              {!example || example === 'loading' ? <p className="wordbook-example-status">正在准备例句，请稍等…</p> : example === 'error' ? <div><p className="wordbook-example-status">例句暂时没有准备好。</p><button className="wordbook-retry" onClick={() => loadExample(selected)}>再试一次</button></div> : <>
-                <p className="wordbook-example-en">{example.en}</p><p className="wordbook-example-zh">{example.zh}</p>
-                <button className="wordbook-listen" onClick={() => playSentence(example.en)}>🔊 朗读例句</button>
-              </>}
+              {selected.example_en && selected.example_zh ? <>
+                <p className="wordbook-example-en">{selected.example_en}</p><p className="wordbook-example-zh">{selected.example_zh}</p>
+                <button className="wordbook-listen" disabled={!selected.example_audio_url} onClick={() => playAudio(selected.example_audio_url)}>🔊 朗读例句</button>
+                {!selected.example_audio_url && <p className="wordbook-example-status">例句朗读暂未准备好。</p>}
+              </> : <p className="wordbook-example-status">例句暂未准备好。</p>}
             </div>
           </section>}
 

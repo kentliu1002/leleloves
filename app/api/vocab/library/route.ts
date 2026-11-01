@@ -21,7 +21,9 @@ export async function GET() {
       rows.push(...data)
       if (data.length < 1000) break
     }
-    return NextResponse.json(groupVocabLibrary(rows))
+    const { data: manifestFile } = await supabase.storage.from('attachments').download('wordbook-audio/v1/manifest.json')
+    const manifest = manifestFile ? JSON.parse(await manifestFile.text()) : {}
+    return NextResponse.json(groupVocabLibrary(rows, manifest))
   } catch (e: any) {
     return NextResponse.json({ error: e.message || '单词书加载失败' }, { status: 500 })
   }

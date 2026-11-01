@@ -37,6 +37,10 @@
 .wordbook-detail { scroll-margin-top:18px; margin-top:30px; border:1px solid #9793da; border-radius:22px; background:#202a50; padding:24px; box-shadow:0 10px 30px #0004; }
 .wordbook-detail-top { display:flex; justify-content:space-between; align-items:center; gap:10px; color:#dedaff; font-size:16px; font-weight:900; }
 .wordbook-close { border:1px solid #707b9b; background:#17203e; color:#fff; min-width:44px; min-height:44px; border-radius:12px; }
+.wordbook-navigation { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:16px; }
+.wordbook-navigation button { flex:1; min-height:48px; border:1px solid #8ba3dd; background:#2b3c6c; color:#fff; border-radius:12px; font-size:17px; font-weight:800; padding:10px; }
+.wordbook-navigation button:disabled { opacity:.45; cursor:not-allowed; }
+.wordbook-navigation span { color:#dce4fc; font-size:15px; white-space:nowrap; }
 .wordbook-detail-word { font-size:38px; line-height:1.2; font-weight:900; margin:14px 0 7px; overflow-wrap:anywhere; }
 .wordbook-ipa { min-height:27px; color:#d7cfff; font-size:18px; line-height:1.5; }
 .wordbook-meaning { font-size:23px; line-height:1.5; margin:10px 0 16px; color:#fff3ca; }
@@ -51,3 +55,7 @@
 .wordbook-footer { text-align:center; color:#c2cdeb; font-size:16px; padding:26px 0 0; }
 @media(max-width:600px) { .wordbook { padding:14px 14px 48px; } .wordbook-hero { padding:24px 20px; } .wordbook-hero h1 { font-size:32px; } .wordbook-hero p { font-size:16px; max-width:78%; } .wordbook-orbit { width:68px; height:68px; border-radius:21px; font-size:29px; right:5%; top:23%; } .wordbook-orbit span { font-size:16px; right:5px; top:3px; } .wordbook-units { grid-template-columns:repeat(3,minmax(0,1fr)); } .wordbook-unit { min-height:86px; } .wordbook-heading { align-items:start; flex-direction:column; gap:4px; } .wordbook-heading h2 { font-size:23px; } .wordbook-words { grid-template-columns:1fr; } .wordbook-detail { padding:20px; } .wordbook-detail-word { font-size:34px; } }
 @media (prefers-reduced-motion: reduce) { .wordbook * { scroll-behavior:auto !important; } }
+
+.wordbook-detail-word,.wordbook-ipa,.wordbook-meaning { text-align:center; }
+.wordbook-audio-note { margin:14px 0 0; color:#d7def3; font-size:14px; text-align:center; }
+.wordbook-sound:disabled,.wordbook-listen:disabled { opacity:.5; cursor:not-allowed; }
