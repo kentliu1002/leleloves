@@ -708,6 +708,14 @@ export default function ChildDashboard() {
           })}
         </div>
 
+        <a href="/wordbook" className="vocab-card" style={{ background: 'linear-gradient(135deg,#163d55,#18505e,#173d63)', borderColor: 'rgba(110,231,183,.35)' }}>
+          <div className="vocab-left">
+            <div className="vocab-icon">📖</div>
+            <div><div className="vocab-title" style={{ fontSize: 18 }}>我的单词书</div><div className="vocab-sub" style={{ fontSize: 15, color: '#c5f4e5' }}>四年级上册 · 按单元自由学习</div></div>
+          </div>
+          <div className="vocab-start-btn" style={{ background: '#235c64', fontSize: 16 }}>打开 ›</div>
+        </a>
+
         {/* 作业列表 */}
         {/* 每日英语单词 · 必做任务（每天自动生成在当天作业列表里，纳入完成进度）*/}
         {hasVocabTask && (

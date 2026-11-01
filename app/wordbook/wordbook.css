@@ -1,0 +1,53 @@
+.wordbook { min-height:100vh; box-sizing:border-box; background:#0a0e27; color:#f4f6ff; padding:20px 18px 60px; font-family:'Nunito','PingFang SC','Microsoft YaHei',sans-serif; }
+.wordbook * { box-sizing:border-box; }
+.wordbook button { font:inherit; cursor:pointer; }
+.wordbook button:focus-visible,.wordbook a:focus-visible { outline:3px solid #ffe28b; outline-offset:3px; }
+.wordbook-shell { max-width:980px; margin:0 auto; }
+.wordbook-header { display:flex; align-items:center; gap:18px; margin-bottom:20px; }
+.wordbook-back { display:inline-flex; min-height:44px; align-items:center; color:#bfdbfe; background:#18234c; border:1px solid #3d5181; border-radius:12px; padding:9px 15px; font-size:16px; font-weight:800; text-decoration:none; }
+.wordbook-header-title { font-size:19px; font-weight:900; }
+.wordbook-hero { position:relative; overflow:hidden; border:1px solid #5c5aa5; border-radius:24px; padding:28px 32px; background:linear-gradient(125deg,#202150 0%,#302c68 55%,#173b67 100%); box-shadow:0 12px 36px #05091b80; }
+.wordbook-eyebrow { color:#c9c4ff; letter-spacing:.12em; font-size:12px; font-weight:900; }
+.wordbook-hero h1 { margin:12px 0 8px; font-size:38px; line-height:1.2; }
+.wordbook-hero h1 span { color:#ffd77e; }
+.wordbook-hero p { color:#e3e8ff; line-height:1.7; font-size:17px; margin:0 0 20px; }
+.wordbook-book { display:inline-flex; flex-wrap:wrap; align-items:center; gap:10px; background:#ffffff12; border:1px solid #ffffff30; border-radius:13px; padding:10px 15px; font-size:17px; }
+.wordbook-book span { font-size:15px; color:#d8e2ff; }
+.wordbook-orbit { position:absolute; right:8%; top:21%; width:122px; height:122px; border:1px solid #c5c1ff70; border-radius:38px; display:flex; align-items:center; justify-content:center; transform:rotate(9deg); background:#ffffff10; color:#efeaff; font-weight:900; font-size:48px; }
+.wordbook-orbit span { position:absolute; color:#ffd77e; font-size:24px; right:10px; top:6px; }
+.wordbook-section { margin-top:30px; }
+.wordbook-heading { display:flex; justify-content:space-between; align-items:end; gap:12px; margin-bottom:14px; }
+.wordbook-heading span { color:#a8b7ef; font-size:12px; font-weight:900; letter-spacing:.12em; }
+.wordbook-heading h2 { margin:5px 0 0; font-size:24px; line-height:1.3; }
+.wordbook-heading p { color:#c6d0ea; font-size:16px; margin:0 0 2px; }
+.wordbook-units { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; }
+.wordbook-unit { min-height:104px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:3px; background:#171f45; border:2px solid #344269; border-radius:16px; color:#e8edff; text-align:left; padding:12px 14px; }
+.wordbook-unit:hover,.wordbook-unit.active { background:#413e89; border-color:#c1b7ff; }
+.wordbook-unit span { font-size:12px; letter-spacing:.1em; font-weight:900; color:#c1cdf5; }
+.wordbook-unit strong { font-size:27px; line-height:1.1; }
+.wordbook-unit small { font-size:14px; color:#d5def7; }
+.wordbook-words { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.wordbook-word { display:flex; align-items:center; gap:14px; min-height:78px; text-align:left; color:#f4f6ff; background:#141d3f; border:1px solid #334469; border-radius:16px; padding:14px 16px; }
+.wordbook-word:hover,.wordbook-word.active { background:#26365e; border-color:#9db8ff; }
+.wordbook-word-number { align-self:flex-start; color:#aabcea; font-size:14px; font-weight:800; padding-top:4px; }
+.wordbook-word-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
+.wordbook-word-text strong { font-size:21px; overflow-wrap:anywhere; line-height:1.25; }
+.wordbook-word-text span { color:#d8e2f9; font-size:16px; line-height:1.45; }
+.wordbook-arrow { font-size:28px; color:#b5c7f5; }
+.wordbook-detail { scroll-margin-top:18px; margin-top:30px; border:1px solid #9793da; border-radius:22px; background:#202a50; padding:24px; box-shadow:0 10px 30px #0004; }
+.wordbook-detail-top { display:flex; justify-content:space-between; align-items:center; gap:10px; color:#dedaff; font-size:16px; font-weight:900; }
+.wordbook-close { border:1px solid #707b9b; background:#17203e; color:#fff; min-width:44px; min-height:44px; border-radius:12px; }
+.wordbook-detail-word { font-size:38px; line-height:1.2; font-weight:900; margin:14px 0 7px; overflow-wrap:anywhere; }
+.wordbook-ipa { min-height:27px; color:#d7cfff; font-size:18px; line-height:1.5; }
+.wordbook-meaning { font-size:23px; line-height:1.5; margin:10px 0 16px; color:#fff3ca; }
+.wordbook-sound,.wordbook-action { border:0; background:#f1d083; color:#1f2340; font-size:17px; font-weight:900; padding:12px 18px; min-height:48px; border-radius:13px; }
+.wordbook-example { margin-top:23px; padding:20px; border-radius:17px; background:#141d3f; border:1px solid #475c83; }
+.wordbook-example-label { color:#c9c4ff; font-size:16px; font-weight:900; }
+.wordbook-example-en { font-size:21px; line-height:1.6; font-weight:800; margin:12px 0 4px; overflow-wrap:anywhere; }
+.wordbook-example-zh,.wordbook-example-status { color:#e0e7fa; font-size:17px; line-height:1.65; margin:5px 0 12px; }
+.wordbook-listen,.wordbook-retry { background:#263863; color:#e7efff; border:1px solid #7192d0; border-radius:11px; padding:10px 14px; min-height:44px; font-weight:800; font-size:16px; }
+.wordbook-error { color:#ffd4bf; font-size:16px; }
+.wordbook-notice { margin:25px 0; padding:20px; background:#182347; border-radius:16px; color:#e6edff; font-size:18px; }
+.wordbook-footer { text-align:center; color:#c2cdeb; font-size:16px; padding:26px 0 0; }
+@media(max-width:600px) { .wordbook { padding:14px 14px 48px; } .wordbook-hero { padding:24px 20px; } .wordbook-hero h1 { font-size:32px; } .wordbook-hero p { font-size:16px; max-width:78%; } .wordbook-orbit { width:68px; height:68px; border-radius:21px; font-size:29px; right:5%; top:23%; } .wordbook-orbit span { font-size:16px; right:5px; top:3px; } .wordbook-units { grid-template-columns:repeat(3,minmax(0,1fr)); } .wordbook-unit { min-height:86px; } .wordbook-heading { align-items:start; flex-direction:column; gap:4px; } .wordbook-heading h2 { font-size:23px; } .wordbook-words { grid-template-columns:1fr; } .wordbook-detail { padding:20px; } .wordbook-detail-word { font-size:34px; } }
+@media (prefers-reduced-motion: reduce) { .wordbook * { scroll-behavior:auto !important; } }
