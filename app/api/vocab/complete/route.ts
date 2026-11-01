@@ -49,7 +49,7 @@ export async function POST() {
         date: today,
         day_type: 'manual',
         points: 0,
-        reason: '单词任务完成，等待其他作业完成后 +5',
+        reason: '单词任务完成，等待其他作业完成后 +1',
         source: 'vocab_bonus',
         homework_ids: []
       })

@@ -10,6 +10,7 @@ interface PointsData {
   todayIsWorkday: boolean
   tomorrowIsWorkday: boolean
   yesterdayWasWorkday: boolean
+  ordinaryWeekend: boolean
   windowRestDays: number | null
   currentWindow: { windowStart: string; windowEnd: string } | null
 }
@@ -233,7 +234,7 @@ export default function ChildDashboard() {
     const tomorrowWorkday  = pointsData?.tomorrowIsWorkday   ?? false
     const yesterdayWorkday = pointsData?.yesterdayWasWorkday ?? false
     const restDays         = pointsData?.windowRestDays      ?? 2
-    const mult             = restDays + 1
+    const mult             = pointsData?.ordinaryWeekend ? 1 : restDays + 1
 
     // ── 上学日：周一~周四 / 调休当天 / 明天调休（今晚按上学日截止）
     const isSchoolDay = (wd >= 1 && wd <= 4) || todayWorkday || (tomorrowWorkday && !pointsData?.currentWindow)
@@ -256,9 +257,9 @@ export default function ChildDashboard() {
       return {
         title: tag,
         rows: [
-          { icon: '🏅', desc: '晚 9:00 前完成',   pts: '+10', cls: 'g10' },
-          { icon: '⭐', desc: '晚 9:30 前完成',   pts: '+8',  cls: 'g8'  },
-          { icon: '✨', desc: '晚 10:00 前完成',   pts: '+6',  cls: 'g6'  },
+          { icon: '🏅', desc: '晚 9:00 前完成',   pts: '+5',  cls: 'g10' },
+          { icon: '⭐', desc: '晚 9:30 前完成',   pts: '+3',  cls: 'g8'  },
+          { icon: '✨', desc: '晚 10:00 前完成',   pts: '+1',  cls: 'g6'  },
           { icon: '😴', desc: '没完成',            pts: '0',   cls: 'g0'  },
         ]
       }
@@ -280,7 +281,7 @@ export default function ChildDashboard() {
       }
       // 正常双休周日（最后一天）—— 10分窗口昨天已过
       return {
-        title: `📋 周日截止规则（假期×${mult}）`,
+        title: pointsData?.ordinaryWeekend ? '📋 周日截止规则' : `📋 周日截止规则（假期×${mult}）`,
         rows: [
           { icon: '⭐', desc: '中午 12:00 前完成', pts: `+${8 * mult}`, cls: 'g8'  },
           { icon: '✨', desc: '下午 6:00 前完成',  pts: `+${6 * mult}`, cls: 'g6'  },
@@ -292,7 +293,7 @@ export default function ChildDashboard() {
     // ── 周六（非调休，正常休息）
     if (wd === 6) {
       return {
-        title: `📋 周末得分规则（假期×${mult}）`,
+        title: pointsData?.ordinaryWeekend ? '📋 周末得分规则' : `📋 周末得分规则（假期×${mult}）`,
         rows: [
           { icon: '🏅', desc: '今天下午 6:00 前完成',    pts: `+${10 * mult}`, cls: 'g10' },
           { icon: '⭐', desc: '明天(周日)中午前完成',    pts: `+${8  * mult}`, cls: 'g8'  },
@@ -304,7 +305,7 @@ export default function ChildDashboard() {
 
     // ── 周五（正常双休前）
     return {
-      title: `📋 周末得分规则（假期×${mult}）`,
+      title: pointsData?.ordinaryWeekend ? '📋 周末得分规则' : `📋 周末得分规则（假期×${mult}）`,
       rows: [
         { icon: '🏅', desc: '明天(周六)下午 6:00 前完成', pts: `+${10 * mult}`, cls: 'g10' },
         { icon: '⭐', desc: '周日中午 12:00 前完成',      pts: `+${8  * mult}`, cls: 'g8'  },

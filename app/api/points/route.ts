@@ -95,6 +95,11 @@ function getWindowRestDays(
   return null
 }
 
+function isOrdinaryWeekend(window: { windowStart: string; windowEnd: string } | null, restDays: number | null, holidays: Holiday[]): boolean {
+  return !!window && restDays === 2 && new Date(window.windowEnd + 'T12:00:00+08:00').getDay() === 0
+    && !holidays.some(h => h.end_date === window.windowEnd)
+}
+
 export async function GET() {
   try {
     const [
@@ -148,6 +153,7 @@ export async function GET() {
       tomorrowIsWorkday,
       yesterdayWasWorkday,
       windowRestDays,
+      ordinaryWeekend: isOrdinaryWeekend(currentWindow, windowRestDays, holidayRows || []),
       currentWindow,       // 今天所属窗口的起止日期，供学生端聚合作业用
       recentLogs: (logs || []).slice(0, 20), // 最近20条流水
     })

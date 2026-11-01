@@ -245,7 +245,7 @@ export default function WordsPage() {
         <div className="center notice-card">
           <div className="big-emoji">🎉</div>
           <div className="notice-title">今日单词任务已完成</div>
-          <div className="notice-text">单词任务已完成；当天其他作业全部完成后计入 +5 积分。</div>
+          <div className="notice-text">单词任务已完成；当天其他作业全部完成后计入 +1 积分。</div>
           {extraGroupsToday > 0 && (
             <div className="notice-text">🎁 额外完成 {extraGroupsToday} 组，符合条件后计入 +{extraGroupsToday * 5} 积分！</div>
           )}

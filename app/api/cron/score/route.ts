@@ -67,7 +67,7 @@ function isNormalSchoolDay(dateStr: string, holidays: Holiday[], workdays: strin
  *   2+天 → 普通周末(周六+周日)/多天节假日
  */
 function getNonNormalWindow(dateStr: string, holidays: Holiday[], workdays: string[]
-): { windowStart: string; windowEnd: string; label: string; restDays: number } | null {
+): { windowStart: string; windowEnd: string; label: string; restDays: number; isOrdinaryWeekend?: boolean } | null {
   // 调休工作日本身不触发窗口
   if (workdays.includes(dateStr)) return null
 
@@ -96,7 +96,7 @@ function getNonNormalWindow(dateStr: string, holidays: Holiday[], workdays: stri
       return { windowStart: saturday, windowEnd: dateStr, label: '周末', restDays: 1 }
     }
     // 正常双休：周五~周日，2天休息
-    return { windowStart: shiftDate(dateStr, -2), windowEnd: dateStr, label: '周末', restDays: 2 }
+    return { windowStart: shiftDate(dateStr, -2), windowEnd: dateStr, label: '周末', restDays: 2, isOrdinaryWeekend: true }
   }
 
   return null
@@ -105,9 +105,9 @@ function getNonNormalWindow(dateStr: string, holidays: Holiday[], workdays: stri
 // ── 积分计算 ──────────────────────────────────────────────────────────────
 
 function calcNormal(lastDone: Date, dateStr: string): { points: number; reason: string } {
-  if (lastDone <= bjDeadline(dateStr, 21,  0)) return { points: 10, reason: '正常上课日 21:00前完成全部作业 🏆' }
-  if (lastDone <= bjDeadline(dateStr, 21, 30)) return { points:  8, reason: '正常上课日 21:30前完成全部作业 ⭐' }
-  if (lastDone <= bjDeadline(dateStr, 22,  0)) return { points:  6, reason: '正常上课日 22:00前完成全部作业' }
+  if (lastDone <= bjDeadline(dateStr, 21,  0)) return { points: 5, reason: '正常上课日 21:00前完成全部作业 🏆' }
+  if (lastDone <= bjDeadline(dateStr, 21, 30)) return { points: 3, reason: '正常上课日 21:30前完成全部作业 ⭐' }
+  if (lastDone <= bjDeadline(dateStr, 22,  0)) return { points: 1, reason: '正常上课日 22:00前完成全部作业' }
   return { points: 0, reason: '正常上课日 22:00前未完成全部作业' }
 }
 
@@ -116,8 +116,8 @@ function calcNormal(lastDone: Date, dateStr: string): { points: number; reason: 
  * restDays=1（仅1天休息）：当天 16:00→10 / 18:00→8 / 21:00→6
  * restDays≥2（2天+休息）：倒数第二天 18:00→10 / 最后一天 12:00→8 / 最后一天 18:00→6
  */
-function calcNonNormal(lastDone: Date, windowEnd: string, restDays: number): { points: number; reason: string } {
-  const mult = restDays + 1
+function calcNonNormal(lastDone: Date, windowEnd: string, restDays: number, isOrdinaryWeekend = false): { points: number; reason: string } {
+  const mult = isOrdinaryWeekend ? 1 : restDays + 1
   if (restDays <= 1) {
     // 1天假期规则（满分 = 10×2 = 20）
     if (lastDone <= bjDeadline(windowEnd, 16,  0)) return { points: 10 * mult, reason: `假期作业（1天）16:00前完成 🏆` }
@@ -186,7 +186,7 @@ async function scoreDay(yesterdayStr: string, holidays: Holiday[], workdays: str
     }
 
     const lastDone = new Date(Math.max(...hw.map(h => new Date(h.completed_at).getTime())))
-    const { points, reason } = calcNonNormal(lastDone, window.windowEnd, window.restDays)
+    const { points, reason } = calcNonNormal(lastDone, window.windowEnd, window.restDays, window.isOrdinaryWeekend)
     const fullReason = `${reason}（${window.windowStart}~${window.windowEnd}）`
     await writePoints(yesterdayStr, 'non_normal', points, fullReason, hw.map(h => h.id))
     return { points, reason: fullReason }
