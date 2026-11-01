@@ -1,3 +1,4 @@
+import { releaseVocabPoints } from '../../../../lib/vocab-points.mjs'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { waitUntil } from '@vercel/functions'
@@ -40,6 +41,11 @@ export async function POST(request: Request) {
     if (!data || data.length === 0) {
       return NextResponse.json({ success: false, error: `作业 ${id} 未找到` }, { status: 404 })
     }
+
+    // 补发该作业所属日期等待中的单词积分。
+    const homeworkDate = new Date(new Date(data[0].created_at).getTime() + 8 * 3600_000).toISOString().slice(0, 10)
+    try { await releaseVocabPoints(supabase, homeworkDate) }
+    catch (error: any) { console.error('[complete-api] vocabulary points:', error.message) }
 
     // 打卡成功后自动后台触发 AI 分析（仅当有照片）。
     // waitUntil 保证响应返回后后台任务继续执行不被回收。

@@ -1,3 +1,4 @@
+import { releaseVocabPoints } from '../../../../lib/vocab-points.mjs'
 import { dailyVocabProgress } from '../../../../lib/daily-vocab.mjs'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -24,39 +25,39 @@ export async function POST() {
     if (!daily) {
       return NextResponse.json({ error: '今日 session 不存在' }, { status: 404 })
     }
-    if (daily.completed_at) {
-      return NextResponse.json({ success: true, alreadyCompleted: true })
+    if (!daily.completed_at) {
+      const { data: attempts, error: attemptsError } = await supabase
+        .from('vocab_attempts').select('word_id,kind,correct,date')
+        .eq('date', today).eq('correct', true)
+      if (attemptsError) throw attemptsError
+      const { reviewPassed, newPassed } = dailyVocabProgress(daily, attempts || [])
+      if (!reviewPassed || !newPassed) {
+        return NextResponse.json({ error: '请先通过全部抽查和新词测试' }, { status: 403 })
+      }
+      const { error: completionError } = await supabase.from('vocab_daily')
+        .update({ completed_at: new Date().toISOString() })
+        .eq('date', today)
+      if (completionError) throw completionError
     }
 
-    const { data: attempts, error: attemptsError } = await supabase
-      .from('vocab_attempts').select('word_id,kind,correct,date')
-      .eq('date', today).eq('correct', true)
-    if (attemptsError) throw attemptsError
-    const { reviewPassed, newPassed } = dailyVocabProgress(daily, attempts || [])
-    if (!reviewPassed || !newPassed) {
-      return NextResponse.json({ error: '请先通过全部抽查和新词测试' }, { status: 403 })
-    }
-
-    await supabase.from('vocab_daily')
-      .update({ completed_at: new Date().toISOString() })
-      .eq('date', today)
-
-    // 加 5 分到 points_log（先查同一天是否已有 vocab_bonus 防重复）
+    // 先记录待发放积分，避免只完成单词时加分。
     const { data: existingPts } = await supabase
       .from('points_log').select('id')
       .eq('date', today).eq('source', 'vocab_bonus').limit(1)
     if (!existingPts || existingPts.length === 0) {
-      await supabase.from('points_log').insert({
+      const { error } = await supabase.from('points_log').insert({
         date: today,
         day_type: 'manual',
-        points: 5,
-        reason: '附加任务：完成英语单词学习 +5',
+        points: 0,
+        reason: '单词任务完成，等待其他作业完成后 +5',
         source: 'vocab_bonus',
         homework_ids: []
       })
+      if (error) throw error
     }
 
-    return NextResponse.json({ success: true })
+    const pointsAwarded = await releaseVocabPoints(supabase, today)
+    return NextResponse.json({ success: true, pointsAwarded })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

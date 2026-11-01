@@ -1,3 +1,4 @@
+import { releaseVocabPoints } from '../../../../lib/vocab-points.mjs'
 import { getSemesterGroup } from '../../../../lib/semester-vocab.mjs'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -78,16 +79,19 @@ export async function POST() {
       )
     }
 
-    await supabase.from('points_log').insert({
+    const { error } = await supabase.from('points_log').insert({
       date: today,
       day_type: 'manual',
-      points: 5,
-      reason: '附加任务：额外背单词一组 +5',
+      points: 0,
+      reason: '额外单词任务完成，等待其他作业完成后 +5',
       source: 'vocab_extra',
       homework_ids: []
     })
+    if (error) throw error
+    const pointsAwarded = await releaseVocabPoints(supabase, today)
 
     return NextResponse.json({
+      pointsAwarded,
       success: true,
       extraGroupsToday: g.extraGroupsToday + 1,
       maxPerDay: MAX_EXTRA_PER_DAY

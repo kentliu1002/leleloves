@@ -1,3 +1,4 @@
+import { releaseVocabPoints } from '../../../../lib/vocab-points.mjs'
 import curriculum from '../../../../lib/semester-vocab.json'
 import { getSemesterGroup } from '../../../../lib/semester-vocab.mjs'
 import { dailyVocabProgress } from '../../../../lib/daily-vocab.mjs'
@@ -66,6 +67,7 @@ export async function GET() {
       .from('vocabulary').select('*').in('id', allIds.length > 0 ? allIds : [-1])
     if (wordsError) throw wordsError
     const wordMap = new Map((words || []).map(w => [w.id, w]))
+    if (daily.completed_at) await releaseVocabPoints(supabase, today)
     const { data: extraLogs } = await supabase
       .from('points_log').select('id').eq('date', today).eq('source', 'vocab_extra')
     return NextResponse.json({
