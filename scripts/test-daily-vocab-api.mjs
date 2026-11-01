@@ -89,9 +89,9 @@ assert.equal((await POST()).status, 200)
 assert.equal(rows.points_log.length, 2)
 const completion = await homeworkPost(new Request('https://example.test/api/homework/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 1 }) }))
 assert.equal(completion.status, 200)
-assert.deepEqual(rows.points_log.map(r => r.points), [1, 5])
+assert.deepEqual(rows.points_log.map(r => r.points), [1, 1])
 assert.equal((await POST()).status, 200)
-assert.deepEqual(rows.points_log.map(r => r.points), [1, 5])
+assert.deepEqual(rows.points_log.map(r => r.points), [1, 1])
 assert.equal((await (await GET()).json()).completedToday, true)
 // Old, unfinished ten-new-word sessions adopt the new quotas once.
 rows.vocab_daily = [{ ...session(), new_word_ids: Array.from({ length: 10 }, (_, i) => i + 11), review_word_ids: [] }]

@@ -67,7 +67,7 @@ export async function GET() {
   }
 }
 
-// POST：完成额外一组 → 加 5 分
+// POST：完成额外一组 → 加 1 分
 export async function POST() {
   try {
     const today = bjToday()
@@ -83,7 +83,7 @@ export async function POST() {
       date: today,
       day_type: 'manual',
       points: 0,
-      reason: '额外单词任务完成，等待其他作业完成后 +5',
+      reason: '额外单词任务完成，等待其他作业完成后 +1',
       source: 'vocab_extra',
       homework_ids: []
     })

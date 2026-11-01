@@ -33,7 +33,7 @@ export default function WordsPage() {
   // 例句缓存: { [wordId]: { en, zh } | 'loading' | 'error' }
   const [examples, setExamples] = useState<Record<number, { en: string, zh: string } | 'loading' | 'error'>>({})
 
-  // 额外组（完成硬性任务后自愿继续，每组 +5 分，每天上限）
+  // 额外组（完成硬性任务后自愿继续，每组 +1 分，每天上限）
   const [isExtra, setIsExtra] = useState(false)
   const [extraGroupsToday, setExtraGroupsToday] = useState(0)
   const [maxPerDay, setMaxPerDay] = useState(3)
@@ -166,7 +166,7 @@ export default function WordsPage() {
   const [hintingWord, setHintingWord] = useState<Word | null>(null)
   const closeHint = () => setHintingWord(null)
 
-  // 一组结束：硬性组标记完成(+5)，额外组发额外 +5
+  // 一组结束：硬性组和额外组完成后各计 1 分
   const finishGroup = async () => {
     const response = await fetch(isExtra ? '/api/vocab/extra' : '/api/vocab/complete', { method: 'POST' })
     const data = await response.json()
@@ -247,15 +247,15 @@ export default function WordsPage() {
           <div className="notice-title">今日单词任务已完成</div>
           <div className="notice-text">单词任务已完成；当天其他作业全部完成后计入 +1 积分。</div>
           {extraGroupsToday > 0 && (
-            <div className="notice-text">🎁 额外完成 {extraGroupsToday} 组，符合条件后计入 +{extraGroupsToday * 5} 积分！</div>
+            <div className="notice-text">🎁 额外完成 {extraGroupsToday} 组，符合条件后计入 +{extraGroupsToday} 积分！</div>
           )}
           {extraGroupsToday < maxPerDay ? (
             <>
               <div className="notice-text">
-                还想继续吗？再完成一组（最多10词，仅四年级上册）其他作业全部完成后可得 +5 积分（{extraGroupsToday}/{maxPerDay}）
+                还想继续吗？再完成一组（最多10词，仅四年级上册）其他作业全部完成后可得 +1 积分（{extraGroupsToday}/{maxPerDay}）
               </div>
               <button className="primary-btn" onClick={startExtra} disabled={startingExtra}>
-                {startingExtra ? '准备中…' : '🚀 再来一组 +5'}
+                {startingExtra ? '准备中…' : '🚀 再来一组 +1'}
               </button>
             </>
           ) : (
