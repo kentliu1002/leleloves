@@ -845,10 +845,10 @@ export default function ChildDashboard() {
 
         </div>
 
-        {displayHomework.length === 0 && !hasVocabTask && isTodaySelected && (
+        {displayHomework.length === 0 && (
           <div className="empty-state">
             <div className="ei">📭</div>
-            <p>这天暂时没有作业记录哦~</p>
+            <p>{isTodaySelected ? '今日暂无作业记录' : '当日暂无作业记录'}</p>
           </div>
         )}
 
