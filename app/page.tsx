@@ -53,6 +53,7 @@ export default function ChildDashboard() {
   const [localFeedback, setLocalFeedback] = useState<Record<string, string>>({})
   const [vocabStats, setVocabStats] = useState<{ masteredCount: number, todayStatus: { completed: boolean, newCount: number, reviewCount: number } } | null>(null)
   const [vocabHistory, setVocabHistory] = useState<{ date: string, completed: boolean }[] | null>(null)
+  const [vocabStreaks, setVocabStreaks] = useState<Record<string, number> | null>(null)
   
   // 📅 生成过去7天的北京日期数组
   const today = bjToday()
@@ -78,6 +79,7 @@ export default function ChildDashboard() {
       const stats = statsRes.ok ? await statsRes.json() : {}
       const today = todayRes.ok ? await todayRes.json() : {}
       setVocabHistory(statsRes.ok && Array.isArray(stats.recentDays) ? stats.recentDays : null)
+      setVocabStreaks(statsRes.ok && stats.streaks ? stats.streaks : null)
       setVocabStats({
         masteredCount: stats.masteredCount ?? 0,
         todayStatus: {
@@ -86,7 +88,7 @@ export default function ChildDashboard() {
           reviewCount: (today.reviewWords || []).length
         }
       })
-    } catch { setVocabHistory(null) }
+    } catch { setVocabHistory(null); setVocabStreaks(null) }
   }
 
   const fetchHW = async () => {
@@ -805,6 +807,7 @@ export default function ChildDashboard() {
                 <div className="vocab-title">天天背单词
                   <span className={`vocab-badge${vocabDone ? ' ok' : ''}`}>
                     {historicalStatus === null ? '状态暂不可用' : vocabDone ? '✅ 已完成' : '未完成'}
+                    {typeof vocabStreaks?.[selectedDate] === 'number' && ` · 已连续打卡 ${vocabStreaks[selectedDate]} 次`}
                   </span>
                 </div>
                 <div className="vocab-sub">{historicalStatus === null ? '请刷新后重试' : vocabDone ? '当日单词任务已完成' : '当日单词任务未完成'}</div>
@@ -824,6 +827,7 @@ export default function ChildDashboard() {
                   天天背单词
                   <span className={`vocab-badge${vocabDone ? ' ok' : ''}`}>
                     {vocabDone ? '✅ 已完成' : '必做 · 待完成'}
+                    {typeof vocabStreaks?.[selectedDate] === 'number' && ` · 已连续打卡 ${vocabStreaks[selectedDate]} 次`}
                   </span>
                 </div>
                 <div className="vocab-sub">

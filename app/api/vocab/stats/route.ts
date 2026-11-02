@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { vocabularyStreak } from '../../../../lib/daily-vocab.mjs'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -63,6 +64,22 @@ export async function GET() {
 
     // 今日状态
     const today = bjToday()
+    const completedDates: string[] = []
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase.from('vocab_daily')
+        .select('date').not('completed_at', 'is', null).lte('date', today)
+        .order('date', { ascending: false }).range(offset, offset + 999)
+      if (error) throw error
+      completedDates.push(...(data || []).map(row => row.date))
+      if ((data || []).length < 1000) break
+    }
+    const streaks: Record<string, number> = {}
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(`${today}T00:00:00Z`)
+      day.setUTCDate(day.getUTCDate() - i)
+      const date = day.toISOString().slice(0, 10)
+      streaks[date] = vocabularyStreak(completedDates, date, i === 0)
+    }
     const todayRow = (dailies || []).find(d => d.date === today)
     const todayStatus = todayRow ? {
       newCount: (todayRow.new_word_ids || []).length,
@@ -79,6 +96,7 @@ export async function GET() {
       reviewFirstTotal: reviewFirst.length,
       newFirstTotal: newFirst.length,
       recentDays,
+      streaks,
       todayStatus
     })
   } catch (e: any) {
