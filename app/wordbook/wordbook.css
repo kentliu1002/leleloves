@@ -59,3 +59,13 @@
 .wordbook-detail-word,.wordbook-ipa,.wordbook-meaning { text-align:center; }
 .wordbook-audio-note { margin:14px 0 0; color:#d7def3; font-size:14px; text-align:center; }
 .wordbook-sound:disabled,.wordbook-listen:disabled { opacity:.5; cursor:not-allowed; }
+
+.wordbook-download { margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:#182747; border:1px solid #50668b; border-radius:17px; }
+.wordbook-download-copy { min-width:0; }
+.wordbook-download-copy strong { color:#fff3ca; font-size:19px; }
+.wordbook-download-copy p { margin:6px 0 0; color:#dce8fa; font-size:15px; line-height:1.6; }
+.wordbook-download-progress { margin-top:7px; color:#b8f0d8; font-size:15px; font-weight:800; }
+.wordbook-download .wordbook-error { margin-top:7px; }
+.wordbook-download-button { flex-shrink:0; min-height:48px; border:0; border-radius:12px; padding:10px 16px; background:#f1d083; color:#1f2340; font-size:16px; font-weight:900; }
+.wordbook-download-button:disabled { opacity:.65; cursor:default; }
+@media(max-width:600px) { .wordbook-download { align-items:stretch; flex-direction:column; } }

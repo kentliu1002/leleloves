@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import './wordbook.css'
+import { audioUrls, downloadWordbookAudio, WORDBOOK_AUDIO_CACHE } from '../../lib/wordbook-cache.mjs'
 
 type Word = { id: number; word: string; ipa: string; meaning_zh: string; example_en: string; example_zh: string; word_audio_url: string; example_audio_url: string }
 type Unit = { unit: number; words: Word[] }
@@ -16,6 +17,8 @@ export default function WordbookPage() {
   const [error, setError] = useState('')
   const [audioError, setAudioError] = useState('')
   const [retry, setRetry] = useState(0)
+  const [download, setDownload] = useState({ done: 0, total: 0, active: false, error: '' })
+  const downloadActive = useRef(false)
   const detailRef = useRef<HTMLElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
@@ -28,6 +31,41 @@ export default function WordbookPage() {
       .catch(e => { if (e.name !== 'AbortError') { setError('单词书暂时打不开，请再试一次。'); setLoading(false) } })
     return () => controller.abort()
   }, [retry])
+
+  useEffect(() => {
+    if (!units.length || !('serviceWorker' in navigator) || !('caches' in window)) return
+    let cancelled = false
+    ;(async () => {
+      const names = await caches.keys()
+      if (!names.includes(WORDBOOK_AUDIO_CACHE)) return
+      const urls = audioUrls(units)
+      const cache = await caches.open(WORDBOOK_AUDIO_CACHE)
+      const saved = new Set((await cache.keys()).map(request => request.url))
+      const done = urls.filter(url => saved.has(url)).length
+      if (done) await navigator.serviceWorker.register('/wordbook-audio-sw.js', { scope: '/wordbook' })
+      if (!cancelled) setDownload({ done, total: urls.length, active: false, error: '' })
+    })().catch(() => {})
+    return () => { cancelled = true }
+  }, [units])
+
+  const downloadAudio = async () => {
+    if (downloadActive.current) return
+    downloadActive.current = true
+    try {
+      if (!('serviceWorker' in navigator) || !('caches' in window)) throw new Error('当前浏览器暂不支持下载，请使用新版 Safari 或 Chrome。')
+      const urls = audioUrls(units)
+      setDownload({ done: download.done, total: urls.length, active: true, error: '' })
+      await navigator.serviceWorker.register('/wordbook-audio-sw.js', { scope: '/wordbook' })
+      await navigator.serviceWorker.ready
+      const cache = await caches.open(WORDBOOK_AUDIO_CACHE)
+      await downloadWordbookAudio(urls, cache, (url: string) => fetch(url, { mode: 'cors' }), (done: number, total: number) => {
+        setDownload({ done, total, active: true, error: '' })
+      })
+      setDownload({ done: urls.length, total: urls.length, active: false, error: '' })
+    } catch (e: any) {
+      setDownload(prev => ({ ...prev, active: false, error: e.message || '下载中断，请检查网络后重试。' }))
+    } finally { downloadActive.current = false }
+  }
 
   const chooseWord = (word: Word, scrollToCard = true) => {
     audioRef.current?.pause()
@@ -72,6 +110,17 @@ export default function WordbookPage() {
         {loading && <p className="wordbook-notice" role="status">正在打开单词书…</p>}
         {error && <div className="wordbook-notice" role="alert"><p>{error}</p><button className="wordbook-action" onClick={() => setRetry(n => n + 1)}>重新打开</button></div>}
         {!loading && !error && <>
+          <section className="wordbook-download" aria-label="下载本册音频">
+            <div className="wordbook-download-copy">
+              <strong>🎧 下载本册音频</strong>
+              <p>保存在这台设备，之后播放更快。打开单词书仍需联网。</p>
+              {download.total > 0 && <div className="wordbook-download-progress" role="status">{download.active ? '正在下载' : download.done === download.total ? '已下载完成' : '已下载'} {download.done} / {download.total} 个音频</div>}
+              {download.error && <div className="wordbook-error" role="alert">下载未完成：{download.error}</div>}
+            </div>
+            <button className="wordbook-download-button" type="button" disabled={download.active || (download.total > 0 && download.done === download.total)} onClick={downloadAudio}>
+              {download.active ? '下载中…' : download.total > 0 && download.done === download.total ? '✓ 已下载' : download.done > 0 ? '继续下载' : '下载到本机'}
+            </button>
+          </section>
           <section className="wordbook-section" aria-label="选择单元">
             <div className="wordbook-heading"><div><span>STEP 01</span><h2>选择单元</h2></div><p>先选一个想学的单元</p></div>
             <div className="wordbook-units">
