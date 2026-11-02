@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import curriculum from '../lib/semester-vocab.json' with { type: 'json' }
+import { wordbookSpeechText } from '../lib/wordbook-pronunciation.mjs'
 
 if (!process.argv.includes('--run')) throw new Error('Pass --run to generate and upload wordbook assets.')
 const env = {}
@@ -66,7 +67,7 @@ async function worker() {
   while (next < words.length) {
     const word = words[next++]
     const example = await getExample(word)
-    const wordAudio = await audioFor(word.id, 'word', word.word)
+    const wordAudio = await audioFor(word.id, 'word', wordbookSpeechText(word.word))
     const exampleAudio = await audioFor(word.id, 'example', example.en)
     manifest[word.id] = { word: word.word, example_en: example.en, wordAudio, exampleAudio }
     completed++

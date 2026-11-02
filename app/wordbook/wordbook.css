@@ -39,6 +39,7 @@
 .wordbook-ipa { min-height:27px; color:#d7cfff; font-size:18px; line-height:1.5; }
 .wordbook-meaning { font-size:23px; line-height:1.5; margin:10px 0 16px; color:#fff3ca; }
 .wordbook-sound,.wordbook-action { border:0; background:#f1d083; color:#1f2340; font-size:17px; font-weight:900; padding:12px 18px; min-height:48px; border-radius:13px; }
+.wordbook-sound { display:block; margin:0 auto; }
 .wordbook-example { margin-top:23px; padding:20px; border-radius:17px; background:#141d3f; border:1px solid #475c83; }
 .wordbook-example-label { color:#c9c4ff; font-size:16px; font-weight:900; }
 .wordbook-example-en { font-size:21px; line-height:1.6; font-weight:800; margin:12px 0 4px; overflow-wrap:anywhere; }
