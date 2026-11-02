@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import pdf from 'pdf-parse';
 import { recognizeSubject, recognizeSubjectForPublish } from '../../../lib/homework-subject.mjs';
+import { IMAGE_TITLE_PENDING, needsImageTitle, recognizeImageTitle } from '../../../lib/homework-image-title.mjs';
 import { ensureTodayRecurringHomework } from '../../../lib/recurring-homework.js';
 import { findRecentDuplicate, submissionId } from '../../../lib/homework-dedup.mjs';
 
@@ -41,10 +42,25 @@ async function retryPendingSubject(row: any) {
         .eq('subject', subject).gte('created_at', `${todayStr}T00:00:00+08:00`);
       content = `${subject}${(count || 0) + 1}`;
     }
-    const { error } = await svc.from('homework').update({ subject, content }).eq('id', row.id).eq('subject', '待识别');
+    const { error } = await svc.from('homework').update(generic ? { subject, content } : { subject }).eq('id', row.id).eq('subject', '待识别');
     if (error) throw error;
   } catch (error: any) {
     console.error('[subject] background retry failed:', error.message);
+  }
+}
+
+async function retryImageTitle(row: any) {
+  try {
+    const title = await recognizeImageTitle({
+      imageUrl: row.file_url,
+      apiKey: OPENAI_API_KEY,
+      fallbackUrl: CRON_SECRET ? 'https://www.leleloves.cn/api/homework/subject-relay' : undefined,
+      fallbackKey: CRON_SECRET
+    });
+    const { error } = await svc.from('homework').update({ content: title }).eq('id', row.id).eq('content', IMAGE_TITLE_PENDING);
+    if (error) throw error;
+  } catch (error: any) {
+    console.error('[image-title] background retry failed:', error.message);
   }
 }
 
@@ -121,8 +137,11 @@ export async function POST(request: Request) {
     const aiSubject = subjectResult.subject;
 
     // C. 智能自动命名逻辑 (学科 + 序号)
+    const imageTitlePending = !!file_url && needsImageTitle({ content, contentProvided: body.contentProvided, fileType: file_type, files: Array.isArray(file_urls) ? file_urls : [] });
     const isGeneric = !content.trim() || /^(wx_|mmexport|img_|image_|\d{10,})/i.test(content);
-    if (isGeneric) {
+    if (imageTitlePending) {
+      content = IMAGE_TITLE_PENDING;
+    } else if (isGeneric) {
       const cnTime = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
       const todayStr = cnTime.toISOString().split('T')[0];
       
@@ -157,6 +176,7 @@ export async function POST(request: Request) {
     }
     if (insertError) throw insertError;
 
+    if (imageTitlePending) waitUntil(retryImageTitle({ id, file_url }));
     if (subjectResult.pending) {
       waitUntil(retryPendingSubject({ id, content, file_url, file_type, file_urls: Array.isArray(file_urls) ? JSON.stringify(file_urls) : file_urls }));
     }
@@ -187,6 +207,8 @@ export async function GET(request: Request) {
       .limit(50);
       
     if (error) throw error;
+    const titleRows = (data || []).filter(row => row.content === IMAGE_TITLE_PENDING && row.file_type === 'image' && row.file_url);
+    if (titleRows.length) waitUntil(Promise.all(titleRows.slice(0, 3).map(retryImageTitle)));
     const pendingRows = (data || []).filter(row => row.subject === '待识别');
     if (pendingRows.length) waitUntil((async () => {
       for (const row of pendingRows.slice(0, 3)) await retryPendingSubject(row);

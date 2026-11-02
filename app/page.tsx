@@ -112,6 +112,25 @@ export default function ChildDashboard() {
     return () => clearInterval(timer)
   }, [])
 
+  const hasPendingImageTitle = allHomework.some(item => item.content === '图片作业（标题识别中）')
+  useEffect(() => {
+    if (!hasPendingImageTitle) return
+    const timer = setInterval(fetchHW, 10000)
+    const stop = setTimeout(() => clearInterval(timer), 60000)
+    return () => { clearInterval(timer); clearTimeout(stop) }
+  }, [hasPendingImageTitle])
+
+  const openTextHomework = (content: string, print: boolean) => {
+    const view = window.open('', '_blank')
+    if (!view) { alert('请允许浏览器弹出窗口哦'); return }
+    view.document.title = '作业内容'
+    const text = view.document.createElement('pre')
+    text.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;font:18px/1.8 sans-serif;max-width:800px;margin:32px auto;padding:0 20px;'
+    text.textContent = content
+    view.document.body.appendChild(text)
+    if (print) { view.focus(); view.print() }
+  }
+
   // 🚀 全自动打印函数（纯净 DOM 版，防 Vercel 报错）
   const handlePrint = (e: React.MouseEvent, url: string) => {
     e.preventDefault();
@@ -587,6 +606,57 @@ export default function ChildDashboard() {
           background: rgba(110,231,183,.15); color: #6ee7b7;
           border: 1px solid rgba(110,231,183,.3); box-shadow: none;
         }
+        /* 紧凑的首页摘要和清晰的作业阅读区 */
+        .lele-wrap { padding: 16px; }
+        .points-card { padding: 12px 20px; margin-bottom: 12px; gap: 14px; overflow: visible; }
+        .points-star { font-size: 34px; }
+        .points-total { font-size: 36px; }
+        .points-divider { height: 42px; }
+        .points-yesterday { min-width: 90px; }
+        .points-yd-label { margin-bottom: 3px; }
+        .points-yd-val { font-size: 24px; }
+        .points-details { position: relative; z-index: 2; }
+        .points-details summary { cursor: pointer; color: #ffe27a; font-size: 15px; font-weight: 800; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.08); }
+        .points-details[open] .points-guide { position: absolute; right: 0; top: 100%; margin-top: 6px; padding: 16px; background: #121d4d; border: 1px solid #ffd43b; border-radius: 14px; box-shadow: 0 8px 24px #050a1c; }
+        .hq { padding: 12px 20px; margin-bottom: 12px; gap: 16px; }
+        .hq-rocket { font-size: 42px; }
+        .hq-label { margin-bottom: 3px; }
+        .hq-date { font-size: 24px; }
+        .hq-sub { font-size: 13px; }
+        .hq-progress { width: 220px; }
+        .prog-pct { font-size: 30px; }
+        .prog-bg { height: 12px; margin-top: 4px; }
+        .refresh-btn { padding: 10px 14px; border-radius: 14px; gap: 2px; }
+        .refresh-btn .ricon { font-size: 20px; }
+        .date-strip { margin-bottom: 12px; }
+        .date-chip { padding: 8px 14px; min-width: 70px; }
+        .date-chip .md { font-size: 17px; }
+        .vocab-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+        .vocab-grid .vocab-card { margin: 0; min-width: 0; }
+        .hw-card-main { display: flex; flex-direction: column; }
+        .subj-band { width: auto; flex-direction: row; justify-content: flex-start; gap: 10px; padding: 10px 18px; }
+        .subj-icon { font-size: 25px; margin: 0; }
+        .subj-name { font-size: 18px; }
+        .card-body { padding: 16px 20px; min-width: 0; }
+        .card-title { font-size: 19px; line-height: 1.7; overflow-wrap: anywhere; font-weight: 700; }
+        .card-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; padding: 12px 18px; border-left: 0; border-top: 1px solid rgba(255,255,255,.08); }
+        .card-actions > .act-btn { width: auto; min-width: 100px; min-height: 44px; }
+        .card-actions .checkin-action { min-width: 120px; max-width: 100%; font-weight: bold; }
+        @media (max-width: 680px) {
+          .vocab-grid { grid-template-columns: 1fr; }
+          .points-card { gap: 10px; }
+          .points-main { min-width: 90px; }
+          .points-divider { display: none; }
+          .points-yesterday { min-width: 65px; max-width: 80px; }
+          .points-yd-reason { max-width: 80px; }
+          .points-label { letter-spacing: 0; }
+          .points-details summary { font-size: 14px; }
+          .hq-info { min-width: 130px; }
+          .hq-progress { width: auto; flex: 1 1 180px; }
+          .card-actions { justify-content: flex-start; }
+          .card-actions > .act-btn { flex: 1; min-width: 78px; }
+          .card-actions .checkin-action { flex: 1; min-width: 100px; }
+        }
       `}</style>
 
       <div className="lele-wrap">
@@ -622,7 +692,9 @@ export default function ChildDashboard() {
             )}
           </div>
           <div className="points-divider" />
-          <div className="points-guide">
+          <details className="points-details">
+            <summary>📋 积分规则</summary>
+            <div className="points-guide">
             {pointsData ? (
               <>
                 <div className="guide-title">{scoreGuide.title}</div>
@@ -639,7 +711,8 @@ export default function ChildDashboard() {
             ) : (
               <div className="guide-title" style={{color:'#6c84aa'}}>积分规则加载中…</div>
             )}
-          </div>
+            </div>
+          </details>
         </div>
 
         {/* 指挥中心 */}
@@ -708,10 +781,11 @@ export default function ChildDashboard() {
           })}
         </div>
 
+        <div className="vocab-grid">
         <a href="/wordbook" className="vocab-card" style={{ background: 'linear-gradient(135deg,#163d55,#18505e,#173d63)', borderColor: 'rgba(110,231,183,.35)' }}>
           <div className="vocab-left">
             <div className="vocab-icon">📖</div>
-            <div><div className="vocab-title" style={{ fontSize: 18 }}>我的单词书</div><div className="vocab-sub" style={{ fontSize: 15, color: '#c5f4e5' }}>四年级上册 · 按单元自由学习</div></div>
+            <div><div className="vocab-title" style={{ fontSize: 18 }}>必考单词本</div><div className="vocab-sub" style={{ fontSize: 15, color: '#c5f4e5' }}>四年级上册 · 按单元自由学习</div></div>
           </div>
           <div className="vocab-start-btn" style={{ background: '#235c64', fontSize: 16 }}>打开 ›</div>
         </a>
@@ -724,7 +798,7 @@ export default function ChildDashboard() {
               <div className="vocab-icon">📚</div>
               <div>
                 <div className="vocab-title">
-                  英语单词
+                  天天背单词
                   <span className={`vocab-badge${vocabDone ? ' ok' : ''}`}>
                     {vocabDone ? '✅ 已完成' : '必做 · 待完成'}
                   </span>
@@ -745,6 +819,8 @@ export default function ChildDashboard() {
             </div>
           </a>
         )}
+
+        </div>
 
         {displayHomework.length === 0 && !hasVocabTask && (
           <div className="empty-state">
@@ -789,6 +865,10 @@ export default function ChildDashboard() {
                 </div>
 
                 <div className="card-actions">
+                  {nonAudioFiles.length === 0 && <>
+                    <button className="act-btn btn-preview" onClick={() => openTextHomework(item.content, false)}>👀 预览</button>
+                    <button className="act-btn btn-print" onClick={() => openTextHomework(item.content, true)}>🖨️ 打印</button>
+                  </>}
                   {nonAudioFiles.map((f, i) => (
                     <React.Fragment key={f.url}>
                       <a href={f.url} target="_blank" rel="noopener noreferrer" className="act-btn btn-preview">
@@ -802,7 +882,7 @@ export default function ChildDashboard() {
                   {item.is_completed ? (
                     <div className="done-badge">✅ 已完成打卡！</div>
                   ) : (
-                    <div style={{ width: '100%', fontWeight: 'bold' }}>
+                    <div className="checkin-action">
                       <CheckInButton id={item.id} isCompleted={item.is_completed} submitType={item.submit_type} />
                     </div>
                   )}

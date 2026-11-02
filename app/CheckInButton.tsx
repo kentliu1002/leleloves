@@ -249,7 +249,7 @@ export default function CheckInButton({ id, isCompleted, submitType = 'photo' }:
           disabled={loading}
           className="flex-1 py-2.5 px-3 rounded-lg text-sm font-bold bg-[#FFD600] text-blue-900 shadow-[0_4px_0_0_#E6B800] active:scale-95 transition-transform"
         >
-          {photos.length === 0 ? '📸 拍下作业打卡' : '📸 再拍一张'}
+          {photos.length === 0 ? '📸 提交' : '📸 再拍一张'}
         </button>
 
         {/* 完成打卡按钮（至少拍一张后出现） */}

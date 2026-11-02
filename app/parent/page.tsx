@@ -74,7 +74,7 @@ export default function ParentPage() {
       }
       if (!finalContent.trim()&&!fileUrl) { alert("请填写内容或选择附件"); setLoading(false); return; }
       const res = await fetch('/api/homework',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({content:finalContent,filename:originalFileName,file_url:fileUrl,file_type:fileType})});
+        body:JSON.stringify({content:finalContent,contentProvided:!!contentInput.trim(),filename:originalFileName,file_url:fileUrl,file_type:fileType})});
       const result=await res.json();
       if (!res.ok) throw new Error(result.error);
       alert(`发布成功！AI识别科目为：${result.subject||'其它'}`);
