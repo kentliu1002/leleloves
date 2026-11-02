@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { getHomework } from '../lib/actions'
 import CheckInButton from './CheckInButton'
+import SubjectIcon from './SubjectIcon'
 
 // ── 积分数据类型 ──────────────────────────────────────────────────────────
 interface PointsData {
@@ -14,18 +15,6 @@ interface PointsData {
   windowRestDays: number | null
   currentWindow: { windowStart: string; windowEnd: string } | null
 }
-
-const SUBJECT_CONFIG: Record<string, { gradient: string; icon: string }> = {
-  '语文': { gradient: 'linear-gradient(180deg,#c92a2a,#7d1313)',  icon: '📖' },
-  '数学': { gradient: 'linear-gradient(180deg,#1971c2,#0b4f8f)',  icon: '🔢' },
-  '英语': { gradient: 'linear-gradient(180deg,#e67700,#9a5000)',  icon: '🔤' },
-  '科学': { gradient: 'linear-gradient(180deg,#2f9e44,#155724)',  icon: '🔬' },
-  '历史': { gradient: 'linear-gradient(180deg,#7048e8,#3b0764)',  icon: '🏛️' },
-  '地理': { gradient: 'linear-gradient(180deg,#0ca678,#065f46)',  icon: '🌍' },
-  '政治': { gradient: 'linear-gradient(180deg,#1864ab,#0b3d7a)',  icon: '⚖️' },
-  '其它': { gradient: 'linear-gradient(180deg,#495057,#212529)',  icon: '📝' },
-}
-const DEFAULT_CFG = { gradient: 'linear-gradient(180deg,#495057,#212529)', icon: '📝' }
 
 function cleanMarkdown(text: string): string {
   return text
@@ -350,7 +339,7 @@ export default function ChildDashboard() {
 
   return (
     <>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
         body {
           background: #0a0e27 !important;
@@ -459,7 +448,6 @@ export default function ChildDashboard() {
         .subj-band { width: 108px; flex-shrink: 0; display: flex; flex-direction: column;
           align-items: center; justify-content: center; padding: 18px 8px; position: relative; overflow: hidden; }
         .subj-band::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,.04); }
-        .subj-icon { font-size: 30px; margin-bottom: 8px; position: relative; z-index: 1; }
         .subj-name { font-size: 17px; font-weight: 900; color: #fff; letter-spacing: 2px;
           position: relative; z-index: 1; }
 
@@ -633,15 +621,27 @@ export default function ChildDashboard() {
         .date-chip .md { font-size: 17px; }
         .vocab-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
         .vocab-grid .vocab-card { margin: 0; min-width: 0; }
+        .hw-card { background: linear-gradient(135deg,#142454,#101c48); border-color: rgba(114,166,255,.6); border-radius: 18px; }
         .hw-card-main { display: flex; flex-direction: column; }
-        .subj-band { width: auto; flex-direction: row; justify-content: flex-start; gap: 10px; padding: 10px 18px; }
-        .subj-icon { font-size: 25px; margin: 0; }
-        .subj-name { font-size: 18px; }
-        .card-body { padding: 16px 20px; min-width: 0; }
-        .card-title { font-size: 19px; line-height: 1.7; overflow-wrap: anywhere; font-weight: 700; }
-        .card-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; padding: 12px 18px; border-left: 0; border-top: 1px solid rgba(255,255,255,.08); }
+        .subj-band { width: auto; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 16px 22px 6px; background: transparent; overflow: visible; }
+        .subj-band::after { display: none; }
+        .subject-icon-art { width: 48px; height: 48px; flex-shrink: 0; filter: drop-shadow(0 3px 6px rgba(0,0,0,.24)); }
+        .subj-name { font-size: 21px; letter-spacing: 0; }
+        .homework-status { font-size: 13px; font-weight: 800; color: #ffc0b8; background: rgba(251,146,146,.14); border: 1px solid rgba(251,146,146,.45); padding: 4px 10px; border-radius: 999px; }
+        .homework-status.completed { color: #a8f0bd; background: rgba(70,200,110,.12); border-color: rgba(70,200,110,.4); }
+        .card-body { padding: 6px 24px 14px; min-width: 0; }
+        .card-title { font-size: 19px; line-height: 1.8; overflow-wrap: anywhere; font-weight: 700; }
+        .card-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; padding: 12px 22px 16px; background: transparent; border-left: 0; border-top: 1px solid rgba(180,205,255,.18); }
+        .btn-print { background: linear-gradient(135deg,#11bba5,#087f79); box-shadow: 0 4px 12px rgba(17,187,165,.25); }
         .card-actions > .act-btn { width: auto; min-width: 100px; min-height: 44px; }
         .card-actions .checkin-action { min-width: 120px; max-width: 100%; font-weight: bold; }
+        .card-actions > .act-btn, .checkin-action button { font-size: 16px; min-height: 44px; }
+        @media (min-width: 681px) {
+          .hw-card-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+          .subj-band { grid-column: 1 / -1; }
+          .card-body { grid-column: 1; }
+          .card-actions { grid-column: 2; align-self: end; border-top: 0; padding-top: 6px; }
+        }
         @media (max-width: 680px) {
           .vocab-grid { grid-template-columns: 1fr; }
           .points-card { gap: 10px; }
@@ -653,11 +653,14 @@ export default function ChildDashboard() {
           .points-details summary { font-size: 14px; }
           .hq-info { min-width: 130px; }
           .hq-progress { width: auto; flex: 1 1 180px; }
-          .card-actions { justify-content: flex-start; }
+          .subj-band { padding: 14px 16px 6px; }
+          .subject-icon-art { width: 42px; height: 42px; }
+          .card-body { padding: 6px 18px 14px; }
+          .card-actions { justify-content: flex-start; padding: 12px 16px 16px; }
           .card-actions > .act-btn { flex: 1; min-width: 78px; }
           .card-actions .checkin-action { flex: 1; min-width: 100px; }
         }
-      `}</style>
+      ` }} />
 
       <div className="lele-wrap">
 
@@ -830,7 +833,6 @@ export default function ChildDashboard() {
         )}
 
         {displayHomework.map((item: any) => {
-          const cfg = SUBJECT_CONFIG[item.subject] || DEFAULT_CFG
           const uploadTime = new Date(item.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
           // 解析附件：优先 file_urls 数组；否则回落到单个 file_url
           let files: { url: string, type: string, filename?: string }[] = []
@@ -848,9 +850,10 @@ export default function ChildDashboard() {
             <div key={item.id} className={`hw-card${item.is_completed ? ' done' : ''}`}>
 
               <div className="hw-card-main">
-                <div className="subj-band" style={{ background: cfg.gradient }}>
-                  <div className="subj-icon">{cfg.icon}</div>
-                  <div className="subj-name">{item.subject}</div>
+                <div className="subj-band">
+                  <SubjectIcon subject={item.subject} />
+                  <div className="subj-name">{item.subject}作业</div>
+                  <span className={`homework-status${item.is_completed ? ' completed' : ''}`}>{item.is_completed ? '已完成' : '待完成'}</span>
                 </div>
 
                 <div className="card-body">
