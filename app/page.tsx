@@ -633,9 +633,9 @@ export default function ChildDashboard() {
         .card-title { font-size: 19px; line-height: 1.8; overflow-wrap: anywhere; font-weight: 700; }
         .card-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; padding: 12px 22px 16px; background: transparent; border-left: 0; border-top: 1px solid rgba(180,205,255,.18); }
         .btn-print { background: linear-gradient(135deg,#11bba5,#087f79); box-shadow: 0 4px 12px rgba(17,187,165,.25); }
-        .card-actions > .act-btn { width: auto; min-width: 100px; min-height: 44px; }
-        .card-actions .checkin-action { min-width: 120px; max-width: 100%; font-weight: bold; }
-        .card-actions > .act-btn, .checkin-action button { font-size: 16px; min-height: 44px; }
+        .card-actions > .act-btn { width: 108px; min-width: 108px; min-height: 44px; }
+        .card-actions .checkin-action { width: 108px; min-width: 108px; max-width: 100%; font-weight: bold; }
+        .card-actions > .act-btn, .checkin-action button { font-size: 16px; height: 46px; }
         @media (min-width: 681px) {
           .hw-card-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
           .subj-band { grid-column: 1 / -1; }
@@ -658,7 +658,7 @@ export default function ChildDashboard() {
           .card-body { padding: 6px 18px 14px; }
           .card-actions { justify-content: flex-start; padding: 12px 16px 16px; }
           .card-actions > .act-btn { flex: 1; min-width: 78px; }
-          .card-actions .checkin-action { flex: 1; min-width: 100px; }
+          .card-actions .checkin-action { flex: 1; width: auto; min-width: 78px; }
         }
       ` }} />
 
