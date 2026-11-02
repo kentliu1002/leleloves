@@ -635,7 +635,7 @@ export default function ChildDashboard() {
         .btn-print { background: linear-gradient(135deg,#11bba5,#087f79); box-shadow: 0 4px 12px rgba(17,187,165,.25); }
         .card-actions > .act-btn { width: 108px; min-width: 108px; min-height: 44px; }
         .card-actions .checkin-action { width: 108px; min-width: 108px; max-width: 100%; font-weight: bold; }
-        .card-actions > .act-btn, .checkin-action button { font-size: 16px; height: 46px; }
+        .card-actions > .act-btn, .checkin-action button { font-size: 16px; height: 46px; border-radius: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
         @media (min-width: 681px) {
           .hw-card-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
           .subj-band { grid-column: 1 / -1; }
