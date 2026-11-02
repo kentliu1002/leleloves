@@ -43,3 +43,11 @@ assert.deepEqual(dailyVocabProgress(session, reviews), { reviewPassed: true, new
 assert.deepEqual(dailyVocabProgress(session, [...reviews, ...session.new_word_ids.map(id => attempt(id, 'new'))]), { reviewPassed: true, newPassed: true })
 assert.deepEqual(dailyVocabProgress({ date, review_word_ids: [], new_word_ids: [] }, []), { reviewPassed: true, newPassed: true })
 console.log('daily vocabulary quotas and unlock tests passed')
+
+const { historicalVocabStatus } = await import('../lib/daily-vocab.mjs')
+const history = [{ date: '2026-11-02', completed: true }, { date: '2026-11-01', completed: false }]
+assert.equal(historicalVocabStatus(history, '2026-11-02'), true)
+assert.equal(historicalVocabStatus(history, '2026-11-01'), false)
+assert.equal(historicalVocabStatus(history, '2026-10-31'), false)
+assert.equal(historicalVocabStatus(null, '2026-11-02'), null)
+console.log('historical vocabulary completion tests passed')

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { getHomework } from '../lib/actions'
 import CheckInButton from './CheckInButton'
 import SubjectIcon from './SubjectIcon'
+import { historicalVocabStatus } from '../lib/daily-vocab.mjs'
 
 // ── 积分数据类型 ──────────────────────────────────────────────────────────
 interface PointsData {
@@ -51,6 +52,7 @@ export default function ChildDashboard() {
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
   const [localFeedback, setLocalFeedback] = useState<Record<string, string>>({})
   const [vocabStats, setVocabStats] = useState<{ masteredCount: number, todayStatus: { completed: boolean, newCount: number, reviewCount: number } } | null>(null)
+  const [vocabHistory, setVocabHistory] = useState<{ date: string, completed: boolean }[] | null>(null)
   
   // 📅 生成过去7天的北京日期数组
   const today = bjToday()
@@ -75,6 +77,7 @@ export default function ChildDashboard() {
       ])
       const stats = statsRes.ok ? await statsRes.json() : {}
       const today = todayRes.ok ? await todayRes.json() : {}
+      setVocabHistory(statsRes.ok && Array.isArray(stats.recentDays) ? stats.recentDays : null)
       setVocabStats({
         masteredCount: stats.masteredCount ?? 0,
         todayStatus: {
@@ -83,7 +86,7 @@ export default function ChildDashboard() {
           reviewCount: (today.reviewWords || []).length
         }
       })
-    } catch {}
+    } catch { setVocabHistory(null) }
   }
 
   const fetchHW = async () => {
@@ -326,10 +329,11 @@ export default function ChildDashboard() {
 
   // 英语单词必做任务：只要是「今天」且有词可学（或已完成）就必做，无论当天有没有布置作业
   const vocabToday = vocabStats?.todayStatus
+  const historicalStatus = historicalVocabStatus(vocabHistory, selectedDate)
   const hasVocabTask = isTodaySelected
-    && !!vocabToday
-    && (vocabToday.completed || (vocabToday.newCount + vocabToday.reviewCount) > 0)
-  const vocabDone = hasVocabTask && !!vocabToday?.completed
+    ? !!vocabToday && (vocabToday.completed || (vocabToday.newCount + vocabToday.reviewCount) > 0)
+    : historicalStatus !== null
+  const vocabDone = isTodaySelected ? hasVocabTask && !!vocabToday?.completed : historicalStatus === true
 
   const baseTotal = displayHomework.length;
   const baseDone = displayHomework.filter((item: any) => item.is_completed).length;
@@ -732,9 +736,9 @@ export default function ChildDashboard() {
             <div className="prog-header">
               <div>
                 <div className="prog-label">完成进度</div>
-                <div className="prog-sub">{completedHomework} / {totalHomework} 个任务</div>
+                <div className="prog-sub">{!isTodaySelected && historicalStatus === null ? '状态暂不可用' : `${completedHomework} / ${totalHomework} 个任务`}</div>
               </div>
-              <div className="prog-pct">{progressRatio}%</div>
+              <div className="prog-pct">{!isTodaySelected && historicalStatus === null ? '—' : `${progressRatio}%`}</div>
             </div>
             <div className="prog-bg">
               <div
@@ -750,7 +754,7 @@ export default function ChildDashboard() {
                 }}
               />
             </div>
-            {progressRatio === 100 && totalHomework > 0 && (
+            {(isTodaySelected || historicalStatus !== null) && progressRatio === 100 && totalHomework > 0 && (
               <div className="all-done-msg">🎉 今天的任务全部完成啦！太棒了！</div>
             )}
           </div>
@@ -793,9 +797,25 @@ export default function ChildDashboard() {
           <div className="vocab-start-btn" style={{ background: '#235c64', fontSize: 16 }}>打开 ›</div>
         </a>
 
+        {!isTodaySelected && (
+          <div className={`vocab-card${vocabDone ? ' vdone' : ''}`}>
+            <div className="vocab-left">
+              <div className="vocab-icon">📚</div>
+              <div>
+                <div className="vocab-title">天天背单词
+                  <span className={`vocab-badge${vocabDone ? ' ok' : ''}`}>
+                    {historicalStatus === null ? '状态暂不可用' : vocabDone ? '✅ 已完成' : '未完成'}
+                  </span>
+                </div>
+                <div className="vocab-sub">{historicalStatus === null ? '请刷新后重试' : vocabDone ? '当日单词任务已完成' : '当日单词任务未完成'}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 作业列表 */}
         {/* 每日英语单词 · 必做任务（每天自动生成在当天作业列表里，纳入完成进度）*/}
-        {hasVocabTask && (
+        {isTodaySelected && hasVocabTask && (
           <a href="/words" className={`vocab-card${vocabDone ? ' vdone' : ''}`}>
             <div className="vocab-left">
               <div className="vocab-icon">📚</div>
@@ -825,7 +845,7 @@ export default function ChildDashboard() {
 
         </div>
 
-        {displayHomework.length === 0 && !hasVocabTask && (
+        {displayHomework.length === 0 && !hasVocabTask && isTodaySelected && (
           <div className="empty-state">
             <div className="ei">📭</div>
             <p>这天暂时没有作业记录哦~</p>

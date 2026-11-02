@@ -38,8 +38,9 @@ export async function GET() {
       : 0
 
     // 最近 14 天每日完成情况
-    const { data: dailies } = await supabase
+    const { data: dailies, error: dailyError } = await supabase
       .from('vocab_daily').select('*').order('date', { ascending: false }).limit(14)
+    if (dailyError) throw dailyError
     const dailyRows = dailies || []
     const wordIds = Array.from(new Set(dailyRows.flatMap(d => [
       ...(d.new_word_ids || []),
