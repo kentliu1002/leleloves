@@ -3,10 +3,29 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import './wordbook.css'
-import { audioUrls, downloadWordbookAudio, WORDBOOK_AUDIO_CACHE } from '../../lib/wordbook-cache.mjs'
+import { audioUrls, downloadWordbookAudio, downloadWordbookShell, downloadWordbookIpa, WORDBOOK_AUDIO_CACHE, WORDBOOK_OFFLINE_CACHE, WORDBOOK_IPA_PATH } from '../../lib/wordbook-cache.mjs'
 
 type Word = { id: number; word: string; ipa: string; meaning_zh: string; example_en: string; example_zh: string; word_audio_url: string; example_audio_url: string }
 type Unit = { unit: number; words: Word[] }
+
+async function waitForOfflineWorker() {
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => { navigator.serviceWorker.removeEventListener('controllerchange', check); reject(new Error('离线功能启动失败，请刷新后重试。')) }, 15000)
+    function check() {
+      const worker = navigator.serviceWorker.controller
+      if (!worker) return
+      const channel = new MessageChannel()
+      channel.port1.onmessage = event => {
+        channel.port1.close()
+        if (event.data !== 'wordbook-offline-v1') return
+        clearTimeout(timer); navigator.serviceWorker.removeEventListener('controllerchange', check); resolve()
+      }
+      worker.postMessage({ type: 'WORDBOOK_OFFLINE_VERSION' }, [channel.port2])
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', check)
+    check()
+  })
+}
 
 export default function WordbookPage() {
   const [units, setUnits] = useState<Unit[]>([])
@@ -17,7 +36,8 @@ export default function WordbookPage() {
   const [error, setError] = useState('')
   const [audioError, setAudioError] = useState('')
   const [retry, setRetry] = useState(0)
-  const [download, setDownload] = useState({ done: 0, total: 0, active: false, error: '' })
+  const [download, setDownload] = useState({ done: 0, total: 0, active: false, ready: false, missingIpa: 0, phase: '', error: '' })
+  const [offline, setOffline] = useState(false)
   const downloadActive = useRef(false)
   const detailRef = useRef<HTMLElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -28,42 +48,85 @@ export default function WordbookPage() {
     fetch('/api/vocab/library', { signal: controller.signal })
       .then(async res => { const data = await res.json(); if (!res.ok) throw new Error(data.error || '单词书加载失败'); return data })
       .then(data => { setUnits(data.units || []); setLoading(false) })
-      .catch(e => { if (e.name !== 'AbortError') { setError('单词书暂时打不开，请再试一次。'); setLoading(false) } })
+      .catch(e => { if (e.name !== 'AbortError') { setError('必考单词本暂时打不开，请联网后重试。'); setLoading(false) } })
     return () => controller.abort()
   }, [retry])
+
+  useEffect(() => {
+    const update = () => setOffline(!navigator.onLine)
+    update()
+    window.addEventListener('online', update); window.addEventListener('offline', update)
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) }
+  }, [])
 
   useEffect(() => {
     if (!units.length || !('serviceWorker' in navigator) || !('caches' in window)) return
     let cancelled = false
     ;(async () => {
       const names = await caches.keys()
-      if (!names.includes(WORDBOOK_AUDIO_CACHE)) return
       const urls = audioUrls(units)
-      const cache = await caches.open(WORDBOOK_AUDIO_CACHE)
-      const saved = new Set((await cache.keys()).map(request => request.url))
-      const done = urls.filter(url => saved.has(url)).length
-      if (done) await navigator.serviceWorker.register('/wordbook-audio-sw.js', { scope: '/wordbook' })
-      if (!cancelled) setDownload({ done, total: urls.length, active: false, error: '' })
+      let done = 0, ready = false, missingIpa = 0
+      if (names.includes(WORDBOOK_AUDIO_CACHE)) {
+        const cache = await caches.open(WORDBOOK_AUDIO_CACHE)
+        const saved = new Set((await cache.keys()).map(request => request.url))
+        done = urls.filter(url => saved.has(url)).length
+      }
+      if (names.includes(WORDBOOK_OFFLINE_CACHE)) {
+        const cache = await caches.open(WORDBOOK_OFFLINE_CACHE)
+        const page = await cache.match(new URL('/wordbook', location.origin).href)
+        const library = await cache.match(new URL('/api/vocab/library', location.origin).href)
+        const ipa = await cache.match(new URL(WORDBOOK_IPA_PATH, location.origin).href)
+        if (ipa) {
+          const savedIpa = await ipa.json()
+          missingIpa = units.flatMap(unit => unit.words).filter(word => !word.ipa && !savedIpa[word.id]).length
+          if (!cancelled) setPronunciations(savedIpa)
+        }
+        const cachedUnits = library ? (await library.json()).units : null
+        ready = !!page && !!ipa && JSON.stringify(cachedUnits) === JSON.stringify(units) && done === urls.length
+      }
+      if (done || ready) await navigator.serviceWorker.register('/wordbook-audio-sw.js', { scope: '/wordbook' })
+      if (!cancelled && !downloadActive.current) setDownload({ done, total: urls.length, active: false, ready, missingIpa, phase: '', error: '' })
     })().catch(() => {})
     return () => { cancelled = true }
   }, [units])
 
-  const downloadAudio = async () => {
+  const downloadOffline = async () => {
     if (downloadActive.current) return
     downloadActive.current = true
     try {
       if (!('serviceWorker' in navigator) || !('caches' in window)) throw new Error('当前浏览器暂不支持下载，请使用新版 Safari 或 Chrome。')
-      const urls = audioUrls(units)
-      setDownload({ done: download.done, total: urls.length, active: true, error: '' })
-      await navigator.serviceWorker.register('/wordbook-audio-sw.js', { scope: '/wordbook' })
+      setDownload(prev => ({ ...prev, active: true, ready: false, phase: '正在准备页面和词表…', error: '' }))
+      const registration = await navigator.serviceWorker.register('/wordbook-audio-sw.js', { scope: '/wordbook' })
+      await registration.update()
       await navigator.serviceWorker.ready
+      await waitForOfflineWorker()
+      const shell = await caches.open(WORDBOOK_OFFLINE_CACHE)
+      const previousLibrary = await shell.match(new URL('/api/vocab/library', location.origin).href)
+      const previousUnits: Unit[] = previousLibrary ? (await previousLibrary.json()).units || [] : []
+      const assets = Array.from(document.querySelectorAll<HTMLScriptElement | HTMLLinkElement>('script[src],link[rel="stylesheet"][href]')).map(element => element instanceof HTMLScriptElement ? element.src : element.href)
+      const snapshot: Unit[] = await downloadWordbookShell(shell, (url: string) => fetch(url, { cache: 'no-store' }), location.origin, assets)
+      const urls = audioUrls(snapshot)
+      setUnits(snapshot)
       const cache = await caches.open(WORDBOOK_AUDIO_CACHE)
       await downloadWordbookAudio(urls, cache, (url: string) => fetch(url, { mode: 'cors' }), (done: number, total: number) => {
-        setDownload({ done, total, active: true, error: '' })
+        setDownload(prev => ({ ...prev, done, total, active: true, ready: false, phase: '正在下载发音…', error: '' }))
       })
-      setDownload({ done: urls.length, total: urls.length, active: false, error: '' })
+      setDownload(prev => ({ ...prev, phase: '正在准备音标…' }))
+      const existingIpa = await shell.match(new URL(WORDBOOK_IPA_PATH, location.origin).href)
+      const oldIpa: Record<number, string> = existingIpa ? await existingIpa.json() : {}
+      const previousWords = new Map(previousUnits.flatMap(unit => unit.words).map(word => [word.id, word.word]))
+      const savedIpa = Object.fromEntries(snapshot.flatMap(unit => unit.words).filter(word => previousWords.get(word.id) === word.word && oldIpa[word.id]).map(word => [word.id, oldIpa[word.id]]))
+      const ipas = await downloadWordbookIpa(snapshot, async (word: string) => {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 8000)
+        try { return await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, { signal: controller.signal }) }
+        finally { clearTimeout(timer) }
+      }, savedIpa) as Record<number, string>
+      await shell.put(new URL(WORDBOOK_IPA_PATH, location.origin).href, new Response(JSON.stringify(ipas), { headers: { 'Content-Type': 'application/json' } }))
+      setPronunciations(ipas)
+      setDownload({ done: urls.length, total: urls.length, active: false, ready: true, missingIpa: snapshot.flatMap(unit => unit.words).filter(word => !word.ipa && !ipas[word.id]).length, phase: '', error: '' })
     } catch (e: any) {
-      setDownload(prev => ({ ...prev, active: false, error: e.message || '下载中断，请检查网络后重试。' }))
+      setDownload(prev => ({ ...prev, active: false, phase: '', error: e.message || '下载中断，请检查网络后重试。' }))
     } finally { downloadActive.current = false }
   }
 
@@ -97,28 +160,26 @@ export default function WordbookPage() {
       <div className="wordbook-shell">
         <header className="wordbook-header">
           <Link href="/" className="wordbook-back">← 返回首页</Link>
-          <span className="wordbook-header-title">📚 我的单词书</span>
+          <span className="wordbook-header-title">📚 必考单词本</span>
         </header>
-        <section className="wordbook-hero">
-          <div className="wordbook-eyebrow">MY WORD BOOK · 我的英语小天地</div>
-          <h1>单词书 <span>✦</span></h1>
-          <p>跟着课本，一起认识新朋友。<br />挑一个单元，再点单词听一听、读一读！</p>
-          <div className="wordbook-book">📖 <strong>四年级上册</strong><span>{loading ? '正在打开…' : `${units.length} 个单元 · ${units.reduce((n, unit) => n + unit.words.length, 0)} 个单词`}</span></div>
-          <div className="wordbook-orbit" aria-hidden="true">Aa<span>✦</span></div>
+        <section className="wordbook-book" aria-label="教材信息">
+          📖 <strong>四年级上册</strong><span>{loading ? '正在打开…' : `${units.length} 个单元 · ${units.reduce((n, unit) => n + unit.words.length, 0)} 个单词`}</span>
+          {offline && <span className="wordbook-offline-status">已离线</span>}
         </section>
 
-        {loading && <p className="wordbook-notice" role="status">正在打开单词书…</p>}
+        {loading && <p className="wordbook-notice" role="status">正在打开必考单词本…</p>}
         {error && <div className="wordbook-notice" role="alert"><p>{error}</p><button className="wordbook-action" onClick={() => setRetry(n => n + 1)}>重新打开</button></div>}
         {!loading && !error && <>
-          <section className="wordbook-download" aria-label="下载本册音频">
+          <section className="wordbook-download" aria-label="离线学习">
             <div className="wordbook-download-copy">
-              <strong>🎧 下载本册音频</strong>
-              <p>保存在这台设备，之后播放更快。打开单词书仍需联网。</p>
-              {download.total > 0 && <div className="wordbook-download-progress" role="status">{download.active ? '正在下载' : download.done === download.total ? '已下载完成' : '已下载'} {download.done} / {download.total} 个音频</div>}
+              <strong>📥 离线学习</strong>
+              <p>在这台设备下载一次，断网也能看单词、听发音。</p>
+              {download.active && <div className="wordbook-download-progress" role="status">{download.phase} {download.total > 0 && download.phase.includes('发音') ? `${download.done} / ${download.total}` : ''}</div>}
+              {!download.active && download.ready && <div className="wordbook-download-progress" role="status">✓ 已保存到本机{download.missingIpa > 0 ? `（${download.missingIpa} 个词未能保存音标）` : ''}</div>}
               {download.error && <div className="wordbook-error" role="alert">下载未完成：{download.error}</div>}
             </div>
-            <button className="wordbook-download-button" type="button" disabled={download.active || (download.total > 0 && download.done === download.total)} onClick={downloadAudio}>
-              {download.active ? '下载中…' : download.total > 0 && download.done === download.total ? '✓ 已下载' : download.done > 0 ? '继续下载' : '下载到本机'}
+            <button className="wordbook-download-button" type="button" disabled={download.active || offline} onClick={downloadOffline}>
+              {download.active ? '下载中…' : download.ready ? '更新离线内容' : download.done > 0 ? '准备离线内容' : '下载到本机'}
             </button>
           </section>
           <section className="wordbook-section" aria-label="选择单元">
