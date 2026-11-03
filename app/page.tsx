@@ -4,6 +4,7 @@ import { getHomework } from '../lib/actions'
 import CheckInButton from './CheckInButton'
 import SubjectIcon from './SubjectIcon'
 import { historicalVocabStatus } from '../lib/daily-vocab.mjs'
+import { openPdfDirectlyForPrint } from '../lib/homework-pdf-print.mjs'
 
 // ── 积分数据类型 ──────────────────────────────────────────────────────────
 interface PointsData {
@@ -126,8 +127,12 @@ export default function ChildDashboard() {
   }
 
   // 🚀 全自动打印函数（纯净 DOM 版，防 Vercel 报错）
-  const handlePrint = (e: React.MouseEvent, url: string) => {
+  const handlePrint = (e: React.MouseEvent, url: string, type: string) => {
     e.preventDefault();
+    if (openPdfDirectlyForPrint(type, url, navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -135,7 +140,7 @@ export default function ChildDashboard() {
       return;
     }
 
-    const isPdf = url.toLowerCase().includes('.pdf');
+    const isPdf = type === 'pdf' || /\.pdf(?:[?#]|$)/i.test(url);
     
     printWindow.document.write("<!DOCTYPE html><html><head><title>打印作业</title></head><body></body></html>");
     printWindow.document.close();
@@ -901,7 +906,7 @@ export default function ChildDashboard() {
                       <a href={f.url} target="_blank" rel="noopener noreferrer" className="act-btn btn-preview">
                         👀 预览{nonAudioFiles.length > 1 ? ` ${i + 1}` : ''}
                       </a>
-                      <button className="act-btn btn-print" onClick={(e) => handlePrint(e, f.url)}>
+                      <button className="act-btn btn-print" onClick={(e) => handlePrint(e, f.url, f.type)}>
                         🖨️ 打印{nonAudioFiles.length > 1 ? ` ${i + 1}` : ''}
                       </button>
                     </React.Fragment>
