@@ -7,9 +7,9 @@ let calls = 0
 assert.equal(await recognizeSubject({ imageUrl: 'https://example.test/photo.jpg', apiKey: 'test' }, async (_, options) => {
   calls++
   const body = JSON.parse(options.body)
-  assert.equal(body.model, 'gpt-5.4-mini')
-  assert.equal(body.reasoning_effort, 'none')
-  assert.equal(body.max_completion_tokens, 32)
+  assert.equal(body.model, 'gpt-6.1-sol')
+  assert.equal(body.reasoning_effort, 'low')
+  assert.equal(body.max_completion_tokens, 1024)
   assert.equal('thinking' in body, false)
   assert.equal('max_tokens' in body, false)
   if (calls < 3) throw new Error('connect timeout')
@@ -27,8 +27,8 @@ assert.equal(await recognizeSubject({
   providerUrls.push(url)
   if (url.includes('api.openai.com')) throw new Error('connect timeout')
   const body = JSON.parse(options.body)
-  assert.equal(body.model, 'gpt-5.4-mini')
-  assert.equal(body.reasoning_effort, 'none')
+  assert.equal(body.model, 'gpt-6.1-sol')
+  assert.equal(body.reasoning_effort, 'low')
   assert.equal('thinking' in body, false)
   assert.equal('max_tokens' in body, false)
   assert.equal(options.headers.Authorization, 'Bearer relay-test')

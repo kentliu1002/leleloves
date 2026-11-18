@@ -37,7 +37,7 @@ async function request(url, body) {
 async function getExample(word) {
   if (word.example_en && word.example_zh) return { en: word.example_en, zh: word.example_zh }
   const prompt = `为英语单词或短语“${word.word}”（${word.meaning_zh}）写一个适合中国小学生的简短自然的英语例句，给出准确中文翻译。英语例句尽量包含目标词；如果目标含 sb 或 sth，应在句中使用合理的人或物。仅返回 JSON：{"en":"英语例句","zh":"中文翻译"}。`
-  const res = await request('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.4-mini', messages: [{ role: 'user', content: prompt }], reasoning_effort: 'none', temperature: 0.3, response_format: { type: 'json_object' } })
+  const res = await request('https://api.openai.com/v1/chat/completions', { model: 'gpt-6.1-sol', messages: [{ role: 'user', content: prompt }], reasoning_effort: 'low', response_format: { type: 'json_object' } })
   const data = await res.json()
   const example = JSON.parse(data.choices[0].message.content)
   if (typeof example.en !== 'string' || typeof example.zh !== 'string' || !example.en.trim() || !example.zh.trim()) throw new Error(`Invalid example for word id ${word.id}`)
