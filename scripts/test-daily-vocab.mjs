@@ -54,8 +54,8 @@ console.log('historical vocabulary completion tests passed')
 
 const { vocabularyStreak } = await import('../lib/daily-vocab.mjs')
 const completed = ['2026-11-03', '2026-11-02', '2026-11-01', '2026-10-30']
-assert.equal(vocabularyStreak(completed, '2026-11-03', true), 3)
-assert.equal(vocabularyStreak(completed.slice(1), '2026-11-03', true), 2)
+assert.equal(vocabularyStreak(completed, '2026-11-03', true), 4)
+assert.equal(vocabularyStreak(completed.slice(1), '2026-11-03', true), 3)
 assert.equal(vocabularyStreak(completed.slice(1), '2026-11-03', false), 0)
 assert.equal(vocabularyStreak(completed, '2026-10-31', false), 0)
 assert.equal(vocabularyStreak(['2027-01-01', '2026-12-31'], '2027-01-01', true), 2)
@@ -63,3 +63,21 @@ assert.equal(vocabularyStreak([], '2026-11-03', true), 0)
 const longRun = Array.from({ length: 35 }, (_, i) => new Date(Date.UTC(2026, 10, 3 - i)).toISOString().slice(0, 10))
 assert.equal(vocabularyStreak(longRun, '2026-11-03', true), 35)
 console.log('vocabulary streak tests passed')
+
+// 周末只完成一天，也能接续周五和周一；次数只计实际完成日。
+const friday = '2026-11-20', saturday = '2026-11-21', sunday = '2026-11-22', monday = '2026-11-23'
+assert.equal(vocabularyStreak([friday, saturday, monday], monday), 3)
+assert.equal(vocabularyStreak([friday, sunday, monday], monday), 3)
+assert.equal(vocabularyStreak([friday, saturday, sunday, monday], monday), 4)
+assert.equal(vocabularyStreak([friday, monday], monday), 1)
+assert.equal(vocabularyStreak([friday], saturday, true), 1)
+assert.equal(vocabularyStreak([friday], sunday, true), 1)
+assert.equal(vocabularyStreak([friday], sunday), 0)
+assert.equal(vocabularyStreak([friday, saturday], sunday, true), 2)
+assert.equal(vocabularyStreak([friday, saturday], monday, true), 2)
+assert.equal(vocabularyStreak([sunday, monday], monday), 2)
+assert.equal(vocabularyStreak([friday, sunday, monday], monday, false, [saturday]), 2)
+// 历史周六不能把周日的完成次数提前算进去。
+assert.equal(vocabularyStreak([friday, sunday], saturday), 0)
+assert.equal(vocabularyStreak(['2026-12-31','2027-01-01','2027-01-03','2027-01-04'], '2027-01-04'), 4)
+console.log('weekend vocabulary continuity tests passed')

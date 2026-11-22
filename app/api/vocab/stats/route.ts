@@ -73,12 +73,15 @@ export async function GET() {
       completedDates.push(...(data || []).map(row => row.date))
       if ((data || []).length < 1000) break
     }
+    const { data: workdayRows, error: workdayError } = await supabase.from('workday_overrides').select('date')
+    if (workdayError) throw workdayError
+    const workdays = (workdayRows || []).map(row => row.date)
     const streaks: Record<string, number> = {}
     for (let i = 0; i < 7; i++) {
       const day = new Date(`${today}T00:00:00Z`)
       day.setUTCDate(day.getUTCDate() - i)
       const date = day.toISOString().slice(0, 10)
-      streaks[date] = vocabularyStreak(completedDates, date, i === 0)
+      streaks[date] = vocabularyStreak(completedDates, date, i === 0, workdays)
     }
     const todayRow = (dailies || []).find(d => d.date === today)
     const todayStatus = todayRow ? {
