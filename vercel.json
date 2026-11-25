@@ -1,6 +1,9 @@
 {
   "regions": ["hkg1"],
   "functions": {
+    "app/api/study/**": {
+      "regions": ["sin1"]
+    },
     "app/api/homework/subject-relay/route.ts": {
       "regions": ["iad1"]
     },
